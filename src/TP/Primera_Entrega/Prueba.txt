@@ -1,0 +1,50 @@
+-/ZONA DE DECLARACION DE VARIABLES/-
+
+DIM [A,B,C,D,E,G,F,W] AS [INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, STRING, STRING, FLOAT]
+
+
+-/ASIGNACIONES/-
+A := 5
+B := 10
+C := 15
+
+-/IF/-
+IF(A < 4 && B>9)
+THEN
+{
+ 	D:=5
+}
+
+-/IF ELSE/-
+IF(A == 4 || B!=9)
+THEN
+{
+ 	D:=5
+}
+ELSE
+{
+	D:=4
+}
+
+G:= "HOLA"
+F:="HOLA TODO BIEN"
+E:= 12
+
+-/WHILE/-
+WHILE(E > B)
+{
+	E:= E - 1
+}
+
+
+-/PRINT/-
+WRITE "Mostrar por pantalla"
+READ F
+WRITE A
+
+-/CICLO ESPECIAL/-
+WHILE
+A IN [A<C,B>D]
+DO
+ E:= E +1
+ENDWHILE
