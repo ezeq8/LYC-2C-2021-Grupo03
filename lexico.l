@@ -21,7 +21,7 @@ CTE_INT     	-?{DIGITO}+
 ID				{LETRA}({LETRA}|{DIGITO})*
 
 OP_ASIG   		":="
-OP_LOGICO		["and"|"or"]
+OP_LOGICO		"and"|"or"
 OP_NEGACION 	"not"
 OP_DISTINTO		"<>"
 OP_MAYORIGUAL	">="
@@ -31,7 +31,7 @@ OP_MENOR		"<"
 OP_IGUAL		"=="
 OP_SUMA         ["+"]
 OP_DIVI         ["/"]
-OP_REST         ["-"]
+OP_REST         ["\-"]
 OP_MULT         ["*"]
 
 P_A             ["("]
@@ -39,9 +39,9 @@ P_C             [")"]
 LL_A            ["{"]
 LL_C            ["}"]
 C_A				["["]
-C_C				["]"]
+C_C		        "]"
 
-COMENT			\*-.*\-*
+COMENT			\/\*.*\*\/
 COMA			[","]
 P_Y_C			[";"]
 ESPACIO			[" "]
@@ -128,11 +128,10 @@ EQUMIN			"EQUMIN"
 					return DISPLAY;
 				}
 
-
-
-
-
-
+{OP_LOGICO}		{
+				printf("\nOperador logico: %s\n", yytext);
+				return OP_LOGICO;
+				}
 
 {OP_ASIG}		{
 					printf("\nAsignacion: %s\n",yytext);
@@ -186,11 +185,10 @@ EQUMIN			"EQUMIN"
 					printf("\nCorchete que abre: %s\n",yytext);
 					return C_A;
 				}
-{C_C}			{
-					printf("\nCorchete que cierra: %s\n",yytext);
+{C_C}	    	{
+                    printf("\nCorchete que cierra: %s\n",yytext);
 					return C_C;
-				}
-				
+                }					
 {ID}			{
 					printf("\nIdentificador: %s\n",yytext);
 					if(strlen(yytext) <= 30){
@@ -265,13 +263,9 @@ EQUMIN			"EQUMIN"
 					printf("\nOperador de comparacion: %s\n", yytext);
 					return OP_DISTINTO;
 				}
-			
-{OP_LOGICO}		{
-				printf("\nOperador logico: %s\n", yytext);
-				return OP_LOGICO;
-				}
 
-{COMENT} 
+{COMENT} 		{printf("\nComentario: %s\n", yytext);
+				}
 
 \n
 \t

@@ -1,22 +1,20 @@
- Nombre                          | Tipo          | Valor                          | Longitud |
+NOMBRE                        |TIPO                          |VALOR                         |LONGITUD                      
 ---------------------------------|---------------|--------------------------------|----------|
-A                                |INT            |                                |--        |
-B                                |INT            |                                |--        |
-C                                |INT            |                                |--        |
-D                                |INT            |                                |--        |
-E                                |INT            |                                |--        |
-G                                |STRING         |                                |--        |
-F                                |STRING         |                                |--        |
-W                                |FLOAT          |                                |--        |
-_5                               |CTE_INT        |5                               |--        |
-_10                              |CTE_INT        |10                              |--        |
-_15                              |CTE_INT        |15                              |--        |
-_4                               |CTE_INT        |4                               |--        |
-_9                               |CTE_INT        |9                               |--        |
-_HOLA                            |CTE_STRING     |HOLA                            |4         |
-_HOLA TODO BIEN                  |CTE_STRING     |HOLA TODO BIEN                  |14        |
-_12                              |CTE_INT        |12                              |--        |
-_1                               |CTE_INT        |1                               |--        |
-_3                               |CTE_INT        |3                               |--        |
-_2                               |CTE_INT        |2                               |--        |
-_Mostrar por pantalla            |CTE_STRING     |Mostrar por pantalla            |20        |
+A                             |INTEGER                       |--                            |--                            
+B                             |INTEGER                       |--                            |--                            
+C                             |INTEGER                       |--                            |--                            
+D                             |INTEGER                       |--                            |--                            
+E                             |INTEGER                       |--                            |--                            
+G                             |STRING                        |--                            |--                            
+F                             |STRING                        |--                            |--                            
+W                             |FLOAT                         |--                            |--                            
+_5                            |CTE_INT                       |5                             |--                            
+_10                           |CTE_INT                       |10                            |--                            
+_15                           |CTE_INT                       |15                            |--                            
+_4                            |CTE_INT                       |4                             |--                            
+_9                            |CTE_INT                       |9                             |--                            
+_HOLA                         |CTE_STRING                    |HOLA                          |4                             
+_HOLA TODO BIEN               |CTE_STRING                    |HOLA TODO BIEN                |14                            
+_12                           |CTE_INT                       |12                            |--                            
+_1                            |CTE_INT                       |1                             |--                            
+_Mostrar por pantalla         |CTE_STRING                    |Mostrar por pantalla          |20                            

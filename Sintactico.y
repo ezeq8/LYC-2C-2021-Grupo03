@@ -181,6 +181,7 @@ sentencia:
   |asignacion                   {printf("Regla SENTENCIA es asignacion\n");}
   |salida                       {printf("Regla SENTENCIA es salida\n");}
   |entrada                      {printf("Regla SENTENCIA es entrada\n");}
+  |ciclo_especial               {printf("Regla SENTENCIA es ciclo especial\n");}
 ;
 
 ciclo:
@@ -188,7 +189,7 @@ ciclo:
 ;
 
 ciclo_especial:
-	WHILE ID IN C_A decision C_C DO LL_A bloque LL_C ENDWHILE {printf("Regla CICLO ESPECIAL es while especial(decision){bloque}\n");}
+	WHILE ID IN C_A lista_expresion C_C DO LL_A bloque LL_C ENDWHILE {printf("Regla CICLO ESPECIAL es while especial(lista_expresion){bloque}\n");}
 ;
 
 asignacion: 
@@ -206,6 +207,8 @@ if:
 decision:
   decision OP_LOGICO condicion {printf("Regla DECISION ES decision op_logico condicion\n");}
   |condicion                   {printf("Regla DECISION es condicion\n");}
+  |equmax						{printf("Regla Sentencia es equmax\n");}
+  |equmin						{printf("Regla Sentencia es equmin\n");}
 ;
 
 condicion:
@@ -277,6 +280,26 @@ entrada:
                               }
 ;
 
+equmax: 
+	EQUMAX P_A expresion P_Y_C C_A lista_var_cte C_C P_C 	{
+															printf("Regla EQUMAX es equmax ( expresion ; [lista_var_cte])\n");
+														 	}
+;
+
+equmin: 
+	EQUMIN P_A expresion P_Y_C C_A lista_var_cte C_C P_C 	{
+															printf("Regla EQUMIN es equmin ( expresion ; [lista_var_cte])\n");
+															}
+;
+
+lista_var_cte: lista_var_cte COMA ID 					{printf("Regla LISTA_VAR_CTE es lista_var_cte,ID\n");}
+			   |lista_var_cte COMA constante_numerica   {printf("Regla LISTA_VAR_CTE es lista_var_cte,constante_numerica\n");}
+			   |ID										{printf("Regla LISTA_VAR_CTE es ID\n");}
+			   |constante_numerica						{printf("Regla LISTA_VAR_CTE es constante_numerica\n");}
+;
+constante_numerica: CTE_INT								{printf("Regla CONSTANTE_NUMERICA es cte_int\n");}
+				   |CTE_REAL							{printf("Regla CONSTANTE_NUMERICA es cte_real\n");}
+;
 %%
 
 int main(int argc,char *argv[])
