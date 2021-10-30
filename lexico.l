@@ -13,10 +13,10 @@ void mensajeDeError(int );
 %option yylineno 
 
 
-DIGITO		[0-9]
-LETRA		[a-zA-Z]
-
-CTE_REAL    	-?{DIGITO}{1,10}\.{DIGITO}{0,10}|-?{DIGITO}{0,10}\.{DIGITO}{1,10}
+DIGITO			[0-9]
+LETRA			[a-zA-Z]
+CARACTERVALIDO  {LETRA}|{DIGITO}|\n|\t|[[:space:]]
+CTE_REAL    	-?{DIGITO}+\.{DIGITO}*|-?{DIGITO}*\.{DIGITO}+
 CTE_INT     	-?{DIGITO}+
 ID				{LETRA}({LETRA}|{DIGITO})*
 
@@ -29,23 +29,24 @@ OP_MENORIGUAL	"<="
 OP_MAYOR		">"
 OP_MENOR		"<"
 OP_IGUAL		"=="
-OP_SUMA         ["+"]
-OP_DIVI         ["/"]
-OP_REST         ["\-"]
-OP_MULT         ["*"]
+OP_SUMA         "+"
+OP_DIVI         "/"
+OP_REST         "\-"
+OP_MULT         "*"
 
-P_A             ["("]
-P_C             [")"]
-LL_A            ["{"]
-LL_C            ["}"]
-C_A				["["]
+P_A             "("
+P_C             ")"
+LL_A            "{"
+LL_C            "}"
+C_A				"["
 C_C		        "]"
 
-COMENT			\/\*.*\*\/
-COMA			[","]
-P_Y_C			[";"]
-ESPACIO			[" "]
-CTE_STRING 		\".*\"
+COMENT			\*\/{CARACTERVALIDO}*\/\*
+COMENT_ANIDADO	\*\/{CARACTERVALIDO}*{COMENT}?{CARACTERVALIDO}*\/\*
+COMA			","
+P_Y_C			";"
+ESPACIO			" "
+CTE_STRING 		\"{CARACTERVALIDO}*\"          
 INTEGER			"INTEGER"
 FLOAT			"FLOAT"
 STRING 			"STRING"
@@ -63,6 +64,7 @@ AS				"AS"
 EQUMAX			"EQUMAX"
 EQUMIN			"EQUMIN"
 
+/*"*/
 %%
 
 
@@ -130,6 +132,7 @@ EQUMIN			"EQUMIN"
 
 {OP_LOGICO}		{
 				printf("\nOperador logico: %s\n", yytext);
+				yylval.valor_string = strdup(yytext);
 				return OP_LOGICO;
 				}
 
@@ -213,8 +216,14 @@ EQUMIN			"EQUMIN"
 					
 					return CTE_INT;
 				}
-{CTE_REAL}		{
-					printf("\nConstante real: %s\n",yytext);
+{CTE_REAL}		{					
+					printf("\nConstante real: %s\n",yytext);					
+					char* punto=strchr(yytext,'.');
+					if((int)(punto-yytext) > 10)
+						printf("ERROR LEXICO. Descripcion: real fuera de rango (parte entera).\n");//mensajeDeError(2);
+					int decimal=strlen(punto)-1;
+					if(decimal>10)
+						printf("ERROR LEXICO. Descripcion: real fuera de rango (parte decimal).\n");//mensajeDeError(2);
 					if(atof(yytext)<=3.40282347e+38F)
 					{
 						yylval.valor_float = atof( yytext );
@@ -236,35 +245,43 @@ EQUMIN			"EQUMIN"
 				}
 {OP_MAYOR}		{
 					printf("\nOperador de comparacion: %s\n", yytext);
+					yylval.valor_string = strdup(yytext);
 					return OP_MAYOR;
 				}
 
 {OP_MENOR}		{
 					printf("\nOperador de comparacion: %s\n", yytext);
+					yylval.valor_string = strdup(yytext);
 					return OP_MENOR;
 				}
 
 {OP_IGUAL}		{
 					printf("\nOperador de comparacion: %s\n", yytext);
+					yylval.valor_string = strdup(yytext);
 					return OP_IGUAL;
 				}
 
 {OP_MAYORIGUAL}	{
 					printf("\nOperador de comparacion: %s\n", yytext);
+					yylval.valor_string = strdup(yytext);
 					return OP_MAYORIGUAL;
 				}
 
 {OP_MENORIGUAL}	{
 					printf("\nOperador de comparacion: %s\n", yytext);
+					yylval.valor_string = strdup(yytext);
 					return OP_MENORIGUAL;
 				}
 
 {OP_DISTINTO}	{
 					printf("\nOperador de comparacion: %s\n", yytext);
+					yylval.valor_string = strdup(yytext);
 					return OP_DISTINTO;
 				}
 
 {COMENT} 		{printf("\nComentario: %s\n", yytext);
+				}
+{COMENT_ANIDADO} {printf("\nComentario anidado: %s\n", yytext);
 				}
 
 \n

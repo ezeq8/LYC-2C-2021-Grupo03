@@ -1,19 +1,20 @@
-/*ZONA DE DECLARACION DE VARIABLES*/
+*/ZONA DE DECLARACION DE VARIABLES/*
+*/ANIDADOOOO*/ZONA DE DECLARACION DE VARIABLES/* uwu/*
 
 DIM [A,B,C,D,E,G,F,W] AS [INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, STRING, STRING, FLOAT]
 
-/*ASIGNACIONES*/
+*/ASIGNACIONES/*
 A := 5;
 B := 10;
 C := 15;
 
-/*IF*/
+*/IF/*
 IF(A < 4 and B>9)
 {
  	D:=5;
 }
 
-/*IF ELSE*/
+*/IF ELSE/*
 IF(A == 4 or B<>9)
 {
  	D:=5;
@@ -23,36 +24,36 @@ ELSE
 	D:=4;
 }
 
-G:= "HOLA";
+G:= "HOL.A";
 F:="HOLA TODO BIEN";
 E:= 12;
 
-/*WHILE*/
+*/WHILE/*
 WHILE(E > B)
 {
 	E:= E - 1;
 }
 
 
-/*PRINT*/
+*/PRINT/*
 DISPLAY "Mostrar por pantalla";
 GET F;
 DISPLAY A;
 
 
-/*CICLO ESPECIAL*/
-WHILE A IN [A<C,B>D]
-DO {
- E:= E +1
-} ENDWHILE 
-
-
-/*EQUMAX*/
+*/EQUMAX/*
 
 IF ( EQUMAX (10+101; [100, 111, var1] ))
 {
  	D:=5;
 }
 
+
+
+*/CICLO ESPECIAL/*
+WHILE A IN [A+C,B+D]
+DO {
+ E:= E +1
+} ENDWHILE 
 
 

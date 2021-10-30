@@ -31,6 +31,7 @@
 	int buscarEnTabla(char * name);
 	void escribirNombreEnTabla(char* nombre, int pos);
 	void guardarTabla(void);
+	 char* definirOperador(char* operador);
 
 	int yystopparser=0;
 	FILE  *yyin;
@@ -54,6 +55,52 @@
 	int cantTipoDatoDeclarado = 0;
 	int tipoDatoADeclarar;
 
+
+	/*Globales para generacion de tercetos*/
+	int contador_tercetos=0;
+	char DELIMITADOR_TERCETO=',';
+	char TERCETO_VACIO='_';
+	int factor_ind=-1;
+	int programa_ind=-1;
+	int sentencia_ind=-1;
+	int termino_ind=-1;
+	int expresion_ind=-1;
+	int asignacion_ind=-1;
+	int entrada_ind=-1;
+	int salida_ind=-1;
+	int comparador_ind=-1;
+	int condicion_ind=-1;
+	int elem_lista_equ_ind=-1;
+	int equmin_ind=-1;
+	int equmax_ind=-1;
+	int decision_ind=-1;
+	FILE* pfint;
+	int intermedia_creada_con_exito=0;
+	char aux_operador[30];
+	
+	struct node{
+    	int data;
+    	struct node *next;
+	};
+
+	typedef struct {
+		int nro_terceto;
+		char elem1[30];
+		char elem2[30];
+		char elem3[30];
+	}terceto;
+
+	terceto v_tercetos[1000];    //Funciona como una "Lista estatica". TODO: Reemplazar con una lista dinamica
+	struct node *top = NULL;
+	void display();
+	void push(int);
+	int pop();
+	terceto crearNuevoTerceto(char * elem1,char* elem2,char* elem3);
+	int agregarTerceto(terceto terc);
+	void modificarTerceto(int nro_terceto,int nro_elem,char* txt );
+	void escribirIntermedia();
+	void avanzar();
+	int ultimo_terceto_creado();
 %}
 
   /* Tipo de estructura de datos*/
@@ -104,18 +151,20 @@
 %token EQUMAX
 %token EQUMIN
 %token <valor_string>ID
-
+%type <valor_string> comparador;
 %%
 programa:  	   	   
   bloque_declaracion bloque       {
                                     printf("Regla PROGRAMA es bloque_declaracion bloque\n");
                                     printf("COMPILACION EXITOSA\n");
                                     guardarTabla();
+									escribirIntermedia();
                                   }
 	|bloque						{
                                     printf("Regla PROGRAMA es bloque_declaracion bloque\n");
                                     printf("COMPILACION EXITOSA\n");
                                     guardarTabla();
+									escribirIntermedia();
                                   }
 ;  
 
@@ -178,14 +227,24 @@ bloque:
 sentencia:
   ciclo                         {printf("Regla SENTENCIA es ciclo\n");}
   |if                           {printf("Regla SENTENCIA es if\n");}
-  |asignacion                   {printf("Regla SENTENCIA es asignacion\n");}
+  |asignacion                   {printf("Regla SENTENCIA es asignacion\n");
+  								}
   |salida                       {printf("Regla SENTENCIA es salida\n");}
   |entrada                      {printf("Regla SENTENCIA es entrada\n");}
   |ciclo_especial               {printf("Regla SENTENCIA es ciclo especial\n");}
 ;
 
 ciclo:
-	WHILE P_A decision P_C LL_A bloque LL_C {printf("Regla CICLO es while(decision){bloque}\n");}
+	WHILE {push(contador_tercetos);agregarTerceto(crearNuevoTerceto("ET",NULL,NULL));}P_A decision P_C {push(ultimo_terceto_creado());/*avanzar();*/} LL_A bloque LL_C {printf("Regla CICLO es while(decision){bloque}\n");
+																																							int aux1=agregarTerceto(crearNuevoTerceto("BI",NULL,NULL));		//Escribir BI
+																																							int z=pop();													//z=Desaplilar(tope de pila)
+																																							char aux[30];
+																																							sprintf(aux,"[%d]",contador_tercetos); //escribir en terceto Z n celda actual(No hace falta sumar 1 porque el contador apunta ya al proximo terceto)
+																																							modificarTerceto(z,3,aux);			//escribir en terceto Z n celda actual
+																																							z=pop();							//z=Desaplilar(tope de pila)
+																																							sprintf(aux,"[%d]",z);				//Escribir Z(terceto) en la celda actual. Parte 1
+																																							modificarTerceto(aux1,2,aux);	    //Escribir Z(terceto) en la celda actual. Parte 2
+																																							}
 ;
 
 ciclo_especial:
@@ -196,65 +255,103 @@ asignacion:
 	ID OP_ASIG expresion P_Y_C {
                                 chequearVarEnTabla($1);
                                 printf("Regla ASIGNACION es id:=expresion;\n");
+								char aux1[30];
+								sprintf(aux1,"[%d]",expresion_ind);
+								asignacion_ind=agregarTerceto(crearNuevoTerceto(":=",$1,aux1));
                               }
 ;
 
 if: 
-	IF P_A decision P_C LL_A bloque LL_C                        {printf("Regla IF es if(decision){bloque}\n");}
-	|IF P_A decision P_C LL_A bloque LL_C ELSE LL_A bloque LL_C {printf("Regla IF es if(decision){bloque} else {bloque}\n");}
+	IF  P_A decision {/*int aux=agregarTerceto(crearNuevoTerceto("CMP",definirOperador(aux_operador),NULL));push(aux);*/push(condicion_ind);}P_C LL_A bloque {int x=pop();char aux[30];sprintf(aux,"[%d]",contador_tercetos);modificarTerceto(x,3,aux);} LL_C                        {printf("Regla IF es if(decision){bloque}\n");}
+	//|IF P_A decision P_C LL_A bloque LL_C ELSE {printf("H");} LL_A bloque LL_C {printf("Regla IF es if(decision){bloque} else {bloque}\n");}  //TODO: devuelve un error de conflicto cuando intento agregar accion semantica en el medio de la regla si estan las 2 reglas del if (if y if else)
 ;
 
 decision:
-  decision OP_LOGICO condicion {printf("Regla DECISION ES decision op_logico condicion\n");}
-  |condicion                   {printf("Regla DECISION es condicion\n");}
-  |equmax						{printf("Regla Sentencia es equmax\n");}
-  |equmin						{printf("Regla Sentencia es equmin\n");}
+  condicion OP_LOGICO condicion {printf("Regla DECISION ES decision op_logico condicion\n");}  //Solo 2 condiciones maximo. No deberia ser recursiva
+  |condicion                   {printf("Regla DECISION es condicion\n");decision_ind=condicion_ind;}
 ;
 
 condicion:
   OP_NEGACION condicion           {printf("Regla CONDICION es not condicion\n");}
-  |expresion comparador expresion {printf("Regla CONDICION es expresion comparador expresion\n");}
+  |expresion comparador expresion {printf("Regla CONDICION es expresion comparador expresion\n");
+									condicion_ind=agregarTerceto(crearNuevoTerceto("CMP",definirOperador($2),NULL));
+									sprintf(aux_operador,"%s",$2);  //TODO: Uso aux_operador para guardar el operador. Hay mejor forma de saber el operador en esta regla??
+									}
+  |equmax						{printf("Regla CONDICION es equmax\n");condicion_ind=equmax_ind;}
+  |equmin						{printf("Regla CONDICION es equmin\n");condicion_ind=equmin_ind;}
 ;
 
 comparador:
-  OP_IGUAL                    {printf("Regla COMPARADOR ES =\n");}
-  |OP_DISTINTO                {printf("Regla COMPARADOR ES <>\n");}
-  |OP_MENORIGUAL              {printf("Regla COMPARADOR ES <=\n");}
-  |OP_MAYORIGUAL              {printf("Regla COMPARADOR ES >=\n");}
-  |OP_MAYOR                   {printf("Regla COMPARADOR ES >\n");}
-  |OP_MENOR                   {printf("Regla COMPARADOR ES <\n");}
+  OP_IGUAL                    {printf("Regla COMPARADOR ES =\n");/*comparador_ind=agregarTerceto(crearNuevoTerceto("=",NULL,NULL));*/}
+  |OP_DISTINTO                {printf("Regla COMPARADOR ES <>\n");/*comparador_ind=agregarTerceto(crearNuevoTerceto("<>",NULL,NULL));*/}
+  |OP_MENORIGUAL              {printf("Regla COMPARADOR ES <=\n");/*comparador_ind=agregarTerceto(crearNuevoTerceto("<=",NULL,NULL));*/}
+  |OP_MAYORIGUAL              {printf("Regla COMPARADOR ES >=\n");/*comparador_ind=agregarTerceto(crearNuevoTerceto(">=",NULL,NULL));*/}
+  |OP_MAYOR                   {printf("Regla COMPARADOR ES >\n");/*comparador_ind=agregarTerceto(crearNuevoTerceto(">",NULL,NULL));*/}
+  |OP_MENOR                   {printf("Regla COMPARADOR ES <\n");/*comparador_ind=agregarTerceto(crearNuevoTerceto("<",NULL,NULL));*/}
 ;
 
 expresion:
-  expresion OP_SUMA termino   {printf("Regla EXPRESION es expresion+termino\n");}
-	|expresion OP_REST termino  {printf("Regla EXPRESION es expresion-termino\n");}
-  |termino                    {printf("Regla TERMINO es termino\n");}
+  expresion OP_SUMA termino   {printf("Regla EXPRESION es expresion+termino\n");
+  								char aux1[30],aux2[30];
+								sprintf(aux1,"[%d]",expresion_ind);
+								sprintf(aux2,"[%d]",termino_ind);
+								expresion_ind=agregarTerceto(crearNuevoTerceto("+",aux1,aux2));		//TODO: Cambiar a $2 y definir tipo de dato como string
+								}
+	|expresion OP_REST termino  {printf("Regla EXPRESION es expresion-termino\n");
+								char aux1[30],aux2[30];
+								sprintf(aux1,"[%d]",expresion_ind);
+								sprintf(aux2,"[%d]",termino_ind);
+								expresion_ind=agregarTerceto(crearNuevoTerceto("-",aux1,aux2));}
+  |termino                    {printf("Regla EXPRESION es termino\n");
+  								expresion_ind=termino_ind;
+								  }
 ;
 
 termino: 
-  termino OP_MULT factor      {printf("Regla TERMINO es termino*factor\n");}
-	|termino OP_DIVI factor     {printf("Regla TERMINO es termino/factor\n");}
-  |factor                     {printf("Regla FACTOR es factor\n");}
+  termino OP_MULT factor      {printf("Regla TERMINO es termino*factor\n");
+  								char aux1[30],aux2[30];
+								sprintf(aux1,"[%d]",termino_ind);
+								sprintf(aux2,"[%d]",factor_ind);
+								termino_ind=agregarTerceto(crearNuevoTerceto("*",aux1,aux2));
+  								}
+	|termino OP_DIVI factor     {printf("Regla TERMINO es termino/factor\n");
+								char aux1[30],aux2[30];
+								sprintf(aux1,"[%d]",termino_ind);
+								sprintf(aux2,"[%d]",factor_ind);
+								termino_ind=agregarTerceto(crearNuevoTerceto("/",aux1,aux2));
+								}
+  |factor                     {printf("Regla TERMINO es factor\n");
+  								termino_ind=factor_ind;
+								  }
 ;
 
 factor:
-  P_A expresion P_C           {printf("Regla FACTOR es (expresion)\n");}
+  P_A expresion P_C           {printf("Regla FACTOR es (expresion)\n");
+  								factor_ind=expresion_ind;
+							}
 	|ID                         {
                                 printf("Regla FACTOR es id\n");
-                                chequearVarEnTabla(yylval.valor_string);  
+                                chequearVarEnTabla(yylval.valor_string); 
+								factor_ind=agregarTerceto(crearNuevoTerceto(yylval.valor_string,NULL,NULL)); 
                               }
 	|CTE_STRING                 {
                                 printf("Regla FACTOR es cte_string\n");
                                 agregarCteStringATabla(yylval.valor_string);
+								factor_ind=agregarTerceto(crearNuevoTerceto(yylval.valor_string,NULL,NULL));
                               }
 	|CTE_INT                    {
                                 printf("Regla FACTOR es cte_int\n");
-                                agregarCteIntATabla(yylval.valor_int);  
+                                agregarCteIntATabla(yylval.valor_int); 
+								char aux[30];
+								sprintf(aux,"%d",yylval.valor_int);
+								factor_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));
                               }
 	|CTE_REAL                   {
                                 printf("Regla FACTOR es cte_real\n");
-                                agregarCteRealATabla(yylval.valor_float);
-														  }
+                                agregarCteRealATabla(yylval.valor_float);char aux[30];
+								sprintf(aux,"%f",yylval.valor_int);
+								factor_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));
+}
 ;
 
 lista_expresion:
@@ -266,10 +363,12 @@ salida:
 	DISPLAY CTE_STRING P_Y_C        {
                                 printf("Regla SALIDA es DISPLAY cte_string;\n");
                                 agregarCteStringATabla(yylval.valor_string);  
+								salida_ind=agregarTerceto(crearNuevoTerceto("DISPLAY",$2,NULL));
                               }
 	|DISPLAY ID P_Y_C               {
                                 chequearVarEnTabla($2);
                                 printf("Regla SALIDA es DISPLAY id;\n");
+								salida_ind=agregarTerceto(crearNuevoTerceto("DISPLAY",$2,NULL));
                               }
 ;
 
@@ -277,29 +376,78 @@ entrada:
   GET ID P_Y_C                {
                                 chequearVarEnTabla($2);
                                 printf("Regla ENTRADA es GET id;\n");
+								entrada_ind=agregarTerceto(crearNuevoTerceto("GET",$2,NULL));
                               }
 ;
 
 equmax: 
-	EQUMAX P_A expresion P_Y_C C_A lista_var_cte C_C P_C 	{
+	EQUMAX P_A expresion_equ P_Y_C C_A lista_var_cte_equmax C_C P_C 	{
 															printf("Regla EQUMAX es equmax ( expresion ; [lista_var_cte])\n");
+															int x_ind=agregarTerceto(crearNuevoTerceto("CMP","@max","@aux_expr"));
+															equmax_ind=agregarTerceto(crearNuevoTerceto("BNE",NULL,NULL));
 														 	}
 ;
 
 equmin: 
-	EQUMIN P_A expresion P_Y_C C_A lista_var_cte C_C P_C 	{
+	EQUMIN P_A expresion_equ P_Y_C C_A lista_var_cte_equmin C_C P_C 	{
 															printf("Regla EQUMIN es equmin ( expresion ; [lista_var_cte])\n");
+															int x_ind=agregarTerceto(crearNuevoTerceto("CMP","@min","@aux_expr"));
+															equmin_ind=agregarTerceto(crearNuevoTerceto("BNE",NULL,NULL));
+
 															}
 ;
 
-lista_var_cte: lista_var_cte COMA ID 					{printf("Regla LISTA_VAR_CTE es lista_var_cte,ID\n");}
-			   |lista_var_cte COMA constante_numerica   {printf("Regla LISTA_VAR_CTE es lista_var_cte,constante_numerica\n");}
-			   |ID										{printf("Regla LISTA_VAR_CTE es ID\n");}
-			   |constante_numerica						{printf("Regla LISTA_VAR_CTE es constante_numerica\n");}
+lista_var_cte_equmin: lista_var_cte_equmin COMA elem_lista_equ   	{printf("Regla LISTA_VAR_CTE es lista_var_cte,elem_lista_equ\n");
+													char aux[30];
+													sprintf(aux,"[%d]",elem_lista_equ_ind);
+													int x_ind=agregarTerceto(crearNuevoTerceto(":=","@aux",aux));
+													agregarTerceto(crearNuevoTerceto("CMP","@aux","@min"));
+													sprintf(aux,"[%d]",x_ind+4);
+													agregarTerceto(crearNuevoTerceto("BGE",aux,NULL));
+													agregarTerceto(crearNuevoTerceto(":=","@min","@aux"));
+													}
+			   |elem_lista_equ						{
+				   									printf("Regla LISTA_VAR_CTE es elem_lista_equ\n");
+													char aux[30];
+													sprintf(aux,"[%d]",elem_lista_equ_ind);
+				   									agregarTerceto(crearNuevoTerceto(":=","@min",aux));
+													}
 ;
-constante_numerica: CTE_INT								{printf("Regla CONSTANTE_NUMERICA es cte_int\n");}
-				   |CTE_REAL							{printf("Regla CONSTANTE_NUMERICA es cte_real\n");}
+
+lista_var_cte_equmax: lista_var_cte_equmax COMA elem_lista_equ   	{printf("Regla LISTA_VAR_CTE es lista_var_cte,elem_lista_equ\n");
+													char aux[30];
+													sprintf(aux,"[%d]",elem_lista_equ_ind);
+													int x_ind=agregarTerceto(crearNuevoTerceto(":=","@aux",aux));
+													agregarTerceto(crearNuevoTerceto("CMP","@max","@aux"));
+													sprintf(aux,"[%d]",x_ind+4);
+													agregarTerceto(crearNuevoTerceto("BGE",aux,NULL));
+													agregarTerceto(crearNuevoTerceto(":=","@max","@aux"));
+													}
+			   |elem_lista_equ						{
+				   									printf("Regla LISTA_VAR_CTE es elem_lista_equ\n");
+													char aux[30];
+													sprintf(aux,"[%d]",elem_lista_equ_ind);
+				   									agregarTerceto(crearNuevoTerceto(":=","@max",aux));
+													}
 ;
+
+elem_lista_equ: 	CTE_INT							{printf("Regla ELEM_LISTA_EQU es cte_int\n");
+													char aux[30];
+													sprintf(aux,"%s",$1);
+													elem_lista_equ_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));}
+				   |CTE_REAL						{
+					   								printf("Regla ELEM_LISTA_EQU es cte_real\n");
+													char aux[30];
+													sprintf(aux,"%s",$1);
+													elem_lista_equ_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));}
+													
+				   |ID							    {printf("Regla ELEM_LISTA_EQU es ID\n");
+				   									char aux[30];
+													sprintf(aux,"%s",$1);
+													elem_lista_equ_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));}
+;
+
+expresion_equ: expresion{char aux[30];sprintf(aux,"[%d]",expresion_ind);agregarTerceto(crearNuevoTerceto(":=","@aux_expr",aux));};
 %%
 
 int main(int argc,char *argv[])
@@ -315,7 +463,7 @@ int main(int argc,char *argv[])
   else
   {
 	  yyparse();
-    fclose(yyin);
+      fclose(yyin);
   }
   return 0;
 }
@@ -519,4 +667,126 @@ void chequearVarEnTabla(char* nombre){
 		yyerror(msg);
 	}
 	//Si existe en la tabla, dejo que la compilacion siga
+}
+
+
+terceto crearNuevoTerceto(char * elem1,char* elem2,char* elem3){
+	terceto terc;
+	printf("funcion crearNuevoTerceto. elementos: %s %s %s\n",elem1,elem2,elem3);
+	sprintf(terc.elem1,"%s",elem1);
+	
+	if(elem2!=NULL){
+		sprintf(terc.elem2,"%s",elem2);
+	}
+	else
+		sprintf(terc.elem2,"%c",TERCETO_VACIO);
+	if(elem3!=NULL){
+		sprintf(terc.elem3,"%s",elem3);
+	}
+	else
+		sprintf(terc.elem3,"%c",TERCETO_VACIO);
+	return terc;
+}
+
+int agregarTerceto(terceto terc){
+	printf("funcion agregarTerceto. [%d](%s,%s,%s)\n",contador_tercetos,terc.elem1,terc.elem2,terc.elem3);
+	terc.nro_terceto=contador_tercetos;
+	v_tercetos[contador_tercetos]=terc;
+	return contador_tercetos++;
+}
+
+void modificarTerceto(int nro_terceto,int nro_elem,char* txt ){
+	printf("funcion ModificarTerceto: [%d] elem%d: %s\n",nro_terceto,nro_elem,txt);
+	if(nro_terceto < 0)
+		return;
+	if(nro_elem == 1){
+		sprintf(v_tercetos[nro_terceto].elem1,txt);
+	}
+	else if(nro_elem == 2){
+		sprintf(v_tercetos[nro_terceto].elem2,txt);
+	}
+	else if(nro_elem == 3){
+		sprintf(v_tercetos[nro_terceto].elem3,txt);
+	}
+
+}
+
+
+void escribirIntermedia(){
+	int i=0;
+	pfint=fopen("intermedia.txt","w");
+	
+	if(pfint == NULL)
+	{
+		printf("ERROR: No se pudo crear el archivo de notacion intermedia. %d",errno);
+		exit(1);
+
+	}
+	for(i=0;i<contador_tercetos;i++){
+		fprintf(pfint,"[%d](%s%c%s%c%s)\n",i,v_tercetos[i].elem1,DELIMITADOR_TERCETO,v_tercetos[i].elem2,DELIMITADOR_TERCETO,v_tercetos[i].elem3);
+	}
+	fclose(pfint);
+
+
+}
+
+void avanzar(){
+	contador_tercetos++;
+}
+
+int ultimo_terceto_creado(){
+	return contador_tercetos-1;
+}
+char* definirOperador(char* operador){
+	if(!strcmp(	operador,	">="))
+		return "BLT";
+	else if(!strcmp(operador,">"))
+		return "BLE";
+	else if(!strcmp(operador,"<="))
+		return "BGT";
+	else if(!strcmp(operador,"<"))
+		return "BGE";
+	else if(!strcmp(operador,"<>"))
+		return "BEQ";
+	else if(!strcmp(operador,"=="))
+		return "BNE";
+	return "";
+}
+
+void push(int item)
+{	printf("funcion push: %d\n",item);
+    struct node *nptr = malloc(sizeof(struct node));
+    nptr->data = item;
+    nptr->next = top;
+    top = nptr;
+}
+
+void display()
+{
+    struct node *temp;
+    temp = top;
+    while (temp != NULL)
+    {
+        printf("\n%d", temp->data);
+        temp = temp->next;
+    }
+}
+
+int pop()
+{
+	int num;
+    if (top == NULL)
+    {
+        printf("\n\nStack is empty ");
+    }
+    else
+    {
+        struct node *temp;
+        temp = top;
+        top = top->next;
+        num=temp->data;
+        free(temp);
+		printf("funcion pop: %d\n",num);
+		return num;
+    }
 }
