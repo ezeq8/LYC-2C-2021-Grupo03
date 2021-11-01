@@ -74,6 +74,8 @@
 	int equmin_ind=-1;
 	int equmax_ind=-1;
 	int decision_ind=-1;
+	int expresion_lado_izq_comp_ind=-1;
+	int expresion_lado_der_comp_ind=-1;
 	FILE* pfint;
 	int intermedia_creada_con_exito=0;
 	char aux_operador[30];
@@ -101,6 +103,9 @@
 	void escribirIntermedia();
 	void avanzar();
 	int ultimo_terceto_creado();
+	terceto getTerceto(int nro_terceto);
+	char* negarOperador(char* operador);
+	int isEmpty();
 %}
 
   /* Tipo de estructura de datos*/
@@ -235,16 +240,21 @@ sentencia:
 ;
 
 ciclo:
-	WHILE {push(contador_tercetos);agregarTerceto(crearNuevoTerceto("ET",NULL,NULL));}P_A decision P_C {push(ultimo_terceto_creado());/*avanzar();*/} LL_A bloque LL_C {printf("Regla CICLO es while(decision){bloque}\n");
-																																							int aux1=agregarTerceto(crearNuevoTerceto("BI",NULL,NULL));		//Escribir BI
-																																							int z=pop();													//z=Desaplilar(tope de pila)
-																																							char aux[30];
-																																							sprintf(aux,"[%d]",contador_tercetos); //escribir en terceto Z n celda actual(No hace falta sumar 1 porque el contador apunta ya al proximo terceto)
-																																							modificarTerceto(z,3,aux);			//escribir en terceto Z n celda actual
-																																							z=pop();							//z=Desaplilar(tope de pila)
-																																							sprintf(aux,"[%d]",z);				//Escribir Z(terceto) en la celda actual. Parte 1
-																																							modificarTerceto(aux1,2,aux);	    //Escribir Z(terceto) en la celda actual. Parte 2
-																																							}
+	WHILE {push(contador_tercetos);agregarTerceto(crearNuevoTerceto("ET",NULL,NULL));}P_A decision P_C {/*push(ultimo_terceto_creado());*//*saco el push por las decisiones anidadas. que cada decision apile su terceto*//*avanzar();*/ /**/} LL_A bloque LL_C {printf("Regla CICLO es while(decision){bloque}\n");
+																																																																char aux[30];															
+																																																																int aux1=agregarTerceto(crearNuevoTerceto("BI",NULL,NULL));		//Escribir BI
+																																																																int z=pop();printf("Desapilando En el while\n");													//z=Desaplilar(tope de pila)
+																																																																while(!isEmpty()){    //Los primeros n elementos de la pila corresponden a las n condiciones. el ultimo elemento (fondo de pila) corresponde a la etiqueta del inicio del while.
+																																																																	sprintf(aux,"[%d]",contador_tercetos); //escribir en terceto Z n celda actual(No hace falta sumar 1 porque el contador apunta ya al proximo terceto)
+																																																																	modificarTerceto(z,2,aux);			//escribir en terceto Z n celda actual
+																																																																	z=pop();								
+																																																																}
+																																																																
+																																																																
+																																																																//z=pop();							//z=Desaplilar(tope de pila). En esta implementacion no es necearia porque cuando sale del while la pila esta vacia y z tiene el ultimo elemento de la pila (fondo de pila)
+																																																																sprintf(aux,"[%d]",z);				//Escribir Z(terceto) en la celda actual. Parte 1
+																																																																modificarTerceto(aux1,2,aux);	    //Escribir Z(terceto) en la celda actual. Parte 2
+																																																																}
 ;
 
 ciclo_especial:
@@ -262,7 +272,7 @@ asignacion:
 ;
 
 if: 
-	IF  P_A decision {/*int aux=agregarTerceto(crearNuevoTerceto("CMP",definirOperador(aux_operador),NULL));push(aux);*/push(condicion_ind);}P_C LL_A bloque {int x=pop();char aux[30];sprintf(aux,"[%d]",contador_tercetos);modificarTerceto(x,3,aux);} LL_C                        {printf("Regla IF es if(decision){bloque}\n");}
+	IF  P_A decision {/*int aux=agregarTerceto(crearNuevoTerceto("CMP",definirOperador(aux_operador),NULL));push(aux);*/ /*Se mueve el push a la parte de condicion para la parte de los ifs anidados*/}P_C LL_A bloque {while(!isEmpty()) {int x=pop();char aux[30];sprintf(aux,"[%d]",contador_tercetos);modificarTerceto(x,2,aux);}} LL_C /*El while es para las condiciones anidadas. Hay que modificar todos los tercetos de todas las condiciones*/           {printf("Regla IF es if(decision){bloque}\n");}
 	//|IF P_A decision P_C LL_A bloque LL_C ELSE {printf("H");} LL_A bloque LL_C {printf("Regla IF es if(decision){bloque} else {bloque}\n");}  //TODO: devuelve un error de conflicto cuando intento agregar accion semantica en el medio de la regla si estan las 2 reglas del if (if y if else)
 ;
 
@@ -272,14 +282,27 @@ decision:
 ;
 
 condicion:
-  OP_NEGACION condicion           {printf("Regla CONDICION es not condicion\n");}
-  |expresion comparador expresion {printf("Regla CONDICION es expresion comparador expresion\n");
-									condicion_ind=agregarTerceto(crearNuevoTerceto("CMP",definirOperador($2),NULL));
-									sprintf(aux_operador,"%s",$2);  //TODO: Uso aux_operador para guardar el operador. Hay mejor forma de saber el operador en esta regla??
+  OP_NEGACION condicion           {
+	  								printf("Regla CONDICION es not condicion\n");
+									modificarTerceto(condicion_ind,1, negarOperador(getTerceto(condicion_ind).elem1));
 									}
-  |equmax						{printf("Regla CONDICION es equmax\n");condicion_ind=equmax_ind;}
-  |equmin						{printf("Regla CONDICION es equmin\n");condicion_ind=equmin_ind;}
+  |expresion_lado_izq_comp comparador expresion_lado_der_comp {printf("Regla CONDICION es expresion comparador expresion\n");  //TODO: Implementar lazy comparing para or
+									char aux1[30];
+									char aux2[30];
+									sprintf(aux1,"[%d]",expresion_lado_izq_comp_ind);
+									sprintf(aux2,"[%d]",expresion_lado_der_comp_ind);
+									agregarTerceto(crearNuevoTerceto("CMP",aux1,aux2));
+									condicion_ind=agregarTerceto(crearNuevoTerceto(definirOperador($2),NULL,NULL));
+									push(condicion_ind);
+									}
+  |equmax						{printf("Regla CONDICION es equmax\n");condicion_ind=equmax_ind;push(condicion_ind);}
+  |equmin						{printf("Regla CONDICION es equmin\n");condicion_ind=equmin_ind;push(condicion_ind);}
 ;
+
+expresion_lado_izq_comp: expresion{expresion_lado_izq_comp_ind=expresion_ind;};
+expresion_lado_der_comp: expresion{expresion_lado_der_comp_ind=expresion_ind;};
+
+
 
 comparador:
   OP_IGUAL                    {printf("Regla COMPARADOR ES =\n");/*comparador_ind=agregarTerceto(crearNuevoTerceto("=",NULL,NULL));*/}
@@ -433,8 +456,9 @@ lista_var_cte_equmax: lista_var_cte_equmax COMA elem_lista_equ   	{printf("Regla
 
 elem_lista_equ: 	CTE_INT							{printf("Regla ELEM_LISTA_EQU es cte_int\n");
 													char aux[30];
-													sprintf(aux,"%s",$1);
-													elem_lista_equ_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));}
+													sprintf(aux,"%d",$1);
+													elem_lista_equ_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));
+													}
 				   |CTE_REAL						{
 					   								printf("Regla ELEM_LISTA_EQU es cte_real\n");
 													char aux[30];
@@ -697,8 +721,10 @@ int agregarTerceto(terceto terc){
 
 void modificarTerceto(int nro_terceto,int nro_elem,char* txt ){
 	printf("funcion ModificarTerceto: [%d] elem%d: %s\n",nro_terceto,nro_elem,txt);
-	if(nro_terceto < 0)
+	if(nro_terceto < 0 || nro_terceto > ultimo_terceto_creado()){
+		printf("ERROR: El terceto %d no existe",nro_terceto);
 		return;
+	}
 	if(nro_elem == 1){
 		sprintf(v_tercetos[nro_terceto].elem1,txt);
 	}
@@ -737,6 +763,14 @@ void avanzar(){
 int ultimo_terceto_creado(){
 	return contador_tercetos-1;
 }
+
+terceto getTerceto(int nro_terceto){
+	return v_tercetos[nro_terceto];
+}
+
+
+
+
 char* definirOperador(char* operador){
 	if(!strcmp(	operador,	">="))
 		return "BLT";
@@ -751,6 +785,21 @@ char* definirOperador(char* operador){
 	else if(!strcmp(operador,"=="))
 		return "BNE";
 	return "";
+}
+
+char* negarOperador(char* operador){
+	if(!strcmp(operador,"BEQ"))
+		return "BNE";
+	if(!strcmp(operador,"BNE"))
+		return "BEQ";
+	if(!strcmp(operador,"BGT"))
+		return "BLE";
+	if(!strcmp(operador,"BLE"))
+		return "BGT";
+	if(!strcmp(operador,"BGE"))
+		return "BLT";
+	if(!strcmp(operador,"BLT"))
+		return "BGE";
 }
 
 void push(int item)
@@ -777,7 +826,8 @@ int pop()
 	int num;
     if (top == NULL)
     {
-        printf("\n\nStack is empty ");
+        printf("\n\nERROR: La pila esta vacia\n");
+		return -1;
     }
     else
     {
@@ -789,4 +839,9 @@ int pop()
 		printf("funcion pop: %d\n",num);
 		return num;
     }
+}
+
+int isEmpty(){
+	printf("Funcion isEmpty: %s\n",top == NULL?"true":"False");
+	return top == NULL;
 }
