@@ -106,6 +106,7 @@
 	terceto getTerceto(int nro_terceto);
 	char* negarOperador(char* operador);
 	int isEmpty();
+	int proximo_terceto();
 %}
 
   /* Tipo de estructura de datos*/
@@ -272,8 +273,25 @@ asignacion:
 ;
 
 if: 
-	IF  P_A decision {/*int aux=agregarTerceto(crearNuevoTerceto("CMP",definirOperador(aux_operador),NULL));push(aux);*/ /*Se mueve el push a la parte de condicion para la parte de los ifs anidados*/}P_C LL_A bloque {while(!isEmpty()) {int x=pop();char aux[30];sprintf(aux,"[%d]",contador_tercetos);modificarTerceto(x,2,aux);}} LL_C /*El while es para las condiciones anidadas. Hay que modificar todos los tercetos de todas las condiciones*/           {printf("Regla IF es if(decision){bloque}\n");}
-	//|IF P_A decision P_C LL_A bloque LL_C ELSE {printf("H");} LL_A bloque LL_C {printf("Regla IF es if(decision){bloque} else {bloque}\n");}  //TODO: devuelve un error de conflicto cuando intento agregar accion semantica en el medio de la regla si estan las 2 reglas del if (if y if else)
+	IF  P_A decision P_C LL_A bloque LL_C /*El while es para las condiciones anidadas. Hay que modificar todos los tercetos de todas las condiciones*/           {printf("Regla IF es if(decision){bloque}\n");while(!isEmpty()) {int x=pop();char aux[30];sprintf(aux,"[%d]",contador_tercetos);modificarTerceto(x,2,aux);}}
+	|IF P_A decision P_C LL_A bloque LL_C ELSE { int z;
+												while (!isEmpty()){
+													z=pop();
+													char aux [30];
+													sprintf(aux,"[%d]",proximo_terceto()+1);   //Proximo terceto +1=terceto del BI
+													modificarTerceto(z,2,aux);
+												}
+												z=agregarTerceto(crearNuevoTerceto("BI",NULL,NULL));
+												push(z);  //o ´push(ultimo_terceto_creado) //Inicio del codigo del else
+	} LL_A bloque LL_C {
+						printf("Regla IF es if(decision){bloque} else {bloque}\n");
+						int z=pop();
+						char aux[30];
+						printf("aaaa");
+						sprintf(aux,"[%d]",proximo_terceto());
+						modificarTerceto(z,2,aux);
+						}  //TODO: devuelve un error de conflicto cuando intento agregar accion semantica en el medio de la regla si estan las 2 reglas del if (if y if else)	
+
 ;
 
 decision:
@@ -768,7 +786,10 @@ terceto getTerceto(int nro_terceto){
 	return v_tercetos[nro_terceto];
 }
 
-
+int proximo_terceto(){
+	printf("Funcion proximo_terceto:  %d\n",contador_tercetos);
+	return contador_tercetos;
+}
 
 
 char* definirOperador(char* operador){
