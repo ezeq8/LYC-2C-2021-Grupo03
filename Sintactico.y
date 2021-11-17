@@ -80,10 +80,12 @@
 	int intermedia_creada_con_exito=0;
 	char aux_operador[30];
 	
+	typedef struct node node;
 	struct node{
     	int data;
     	struct node *next;
 	};
+	
 
 	typedef struct {
 		int nro_terceto;
@@ -93,10 +95,13 @@
 	}terceto;
 
 	terceto v_tercetos[1000];    //Funciona como una "Lista estatica". TODO: Reemplazar con una lista dinamica
-	struct node *top = NULL;
+	struct node *pila_condiciones = NULL;
+	struct node *pila_factores = NULL;			
+	struct node *pila_terminos = NULL;
+	struct node *pila_expresiones = NULL;
 	void display();
-	void push(int);
-	int pop();
+	void push(node**,int);
+	int pop(node**);
 	terceto crearNuevoTerceto(char * elem1,char* elem2,char* elem3);
 	int agregarTerceto(terceto terc);
 	void modificarTerceto(int nro_terceto,int nro_elem,char* txt );
@@ -105,7 +110,7 @@
 	int ultimo_terceto_creado();
 	terceto getTerceto(int nro_terceto);
 	char* negarOperador(char* operador);
-	int isEmpty();
+	int isEmpty(node**);
 	int proximo_terceto();
 %}
 
@@ -241,18 +246,18 @@ sentencia:
 ;
 
 ciclo:
-	WHILE {push(contador_tercetos);agregarTerceto(crearNuevoTerceto("ET",NULL,NULL));}P_A decision P_C {/*push(ultimo_terceto_creado());*//*saco el push por las decisiones anidadas. que cada decision apile su terceto*//*avanzar();*/ /**/} LL_A bloque LL_C {printf("Regla CICLO es while(decision){bloque}\n");
+	WHILE {push(&pila_condiciones,contador_tercetos);agregarTerceto(crearNuevoTerceto("ET",NULL,NULL));}P_A decision P_C {/*push(&pila_condiciones,ultimo_terceto_creado());*//*saco el push por las decisiones anidadas. que cada decision apile su terceto*//*avanzar();*/ /**/} LL_A bloque LL_C {printf("Regla CICLO es while(decision){bloque}\n");
 																																																																char aux[30];															
 																																																																int aux1=agregarTerceto(crearNuevoTerceto("BI",NULL,NULL));		//Escribir BI
-																																																																int z=pop();printf("Desapilando En el while\n");													//z=Desaplilar(tope de pila)
-																																																																while(!isEmpty()){    //Los primeros n elementos de la pila corresponden a las n condiciones. el ultimo elemento (fondo de pila) corresponde a la etiqueta del inicio del while.
+																																																																int z=pop(&pila_condiciones);printf("Desapilando En el while\n");													//z=Desaplilar(tope de pila)
+																																																																while(!isEmpty(&pila_condiciones)){    //Los primeros n elementos de la pila corresponden a las n condiciones. el ultimo elemento (fondo de pila) corresponde a la etiqueta del inicio del while.
 																																																																	sprintf(aux,"[%d]",contador_tercetos); //escribir en terceto Z n celda actual(No hace falta sumar 1 porque el contador apunta ya al proximo terceto)
 																																																																	modificarTerceto(z,2,aux);			//escribir en terceto Z n celda actual
-																																																																	z=pop();								
+																																																																	z=pop(&pila_condiciones);								
 																																																																}
 																																																																
 																																																																
-																																																																//z=pop();							//z=Desaplilar(tope de pila). En esta implementacion no es necearia porque cuando sale del while la pila esta vacia y z tiene el ultimo elemento de la pila (fondo de pila)
+																																																																//z=pop(&pila_condiciones);							//z=Desaplilar(tope de pila). En esta implementacion no es necearia porque cuando sale del while la pila esta vacia y z tiene el ultimo elemento de la pila (fondo de pila)
 																																																																sprintf(aux,"[%d]",z);				//Escribir Z(terceto) en la celda actual. Parte 1
 																																																																modificarTerceto(aux1,2,aux);	    //Escribir Z(terceto) en la celda actual. Parte 2
 																																																																}
@@ -273,19 +278,19 @@ asignacion:
 ;
 
 if: 
-	IF  P_A decision P_C LL_A bloque LL_C /*El while es para las condiciones anidadas. Hay que modificar todos los tercetos de todas las condiciones*/           {printf("Regla IF es if(decision){bloque}\n");while(!isEmpty()) {int x=pop();char aux[30];sprintf(aux,"[%d]",contador_tercetos);modificarTerceto(x,2,aux);}}
+	IF  P_A decision P_C LL_A bloque LL_C /*El while es para las condiciones anidadas. Hay que modificar todos los tercetos de todas las condiciones*/           {printf("Regla IF es if(decision){bloque}\n");while(!isEmpty(&pila_condiciones)) {int x=pop(&pila_condiciones);char aux[30];sprintf(aux,"[%d]",contador_tercetos);modificarTerceto(x,2,aux);}}
 	|IF P_A decision P_C LL_A bloque LL_C ELSE { int z;
-												while (!isEmpty()){
-													z=pop();
+												while (!isEmpty(&pila_condiciones)){
+													z=pop(&pila_condiciones);
 													char aux [30];
 													sprintf(aux,"[%d]",proximo_terceto()+1);   //Proximo terceto +1=terceto del BI
 													modificarTerceto(z,2,aux);
 												}
 												z=agregarTerceto(crearNuevoTerceto("BI",NULL,NULL));
-												push(z);  //o ´push(ultimo_terceto_creado) //Inicio del codigo del else
+												push(&pila_condiciones,z);  //o ´push(&pila_condiciones,ultimo_terceto_creado) //Inicio del codigo del else
 	} LL_A bloque LL_C {
 						printf("Regla IF es if(decision){bloque} else {bloque}\n");
-						int z=pop();
+						int z=pop(&pila_condiciones);
 						char aux[30];
 						printf("aaaa");
 						sprintf(aux,"[%d]",proximo_terceto());
@@ -311,10 +316,10 @@ condicion:
 									sprintf(aux2,"[%d]",expresion_lado_der_comp_ind);
 									agregarTerceto(crearNuevoTerceto("CMP",aux1,aux2));
 									condicion_ind=agregarTerceto(crearNuevoTerceto(definirOperador($2),NULL,NULL));
-									push(condicion_ind);
+									push(&pila_condiciones,condicion_ind);
 									}
-  |equmax						{printf("Regla CONDICION es equmax\n");condicion_ind=equmax_ind;push(condicion_ind);}
-  |equmin						{printf("Regla CONDICION es equmin\n");condicion_ind=equmin_ind;push(condicion_ind);}
+  |equmax						{printf("Regla CONDICION es equmax\n");condicion_ind=equmax_ind;push(&pila_condiciones,condicion_ind);}
+  |equmin						{printf("Regla CONDICION es equmin\n");condicion_ind=equmin_ind;push(&pila_condiciones,condicion_ind);}
 ;
 
 expresion_lado_izq_comp: expresion{expresion_lado_izq_comp_ind=expresion_ind;};
@@ -367,9 +372,12 @@ termino:
 ;
 
 factor:
-  P_A expresion P_C           {printf("Regla FACTOR es (expresion)\n");
-  								factor_ind=expresion_ind;
-							}
+  P_A {/*push(&pila_factores,factor_ind);*/push(&pila_terminos,termino_ind);push(&pila_expresiones,expresion_ind);} expresion P_C { printf("Regla FACTOR es (expresion)\n");  //Haria falta una pila de expresiones para apilar expresiones ???
+  																						factor_ind=expresion_ind;
+																						//factor_ind=pop(&pila_factores);  //Segun entiendo no haria falta pila_factor porque al terminar de reconocer esta regla la instruccion de arriba siempre va a pisar a esta. esta instruccion no deberia pisar a la de arriba
+																						termino_ind=pop(&pila_terminos);
+																						expresion_ind=pop(&pila_expresiones);
+																					  }
 	|ID                         {
                                 printf("Regla FACTOR es id\n");
                                 chequearVarEnTabla(yylval.valor_string); 
@@ -497,7 +505,7 @@ int main(int argc,char *argv[])
   //#ifdef YYDEBUG
     //yydebug = 1;
   //#endif 
-
+  
   if ((yyin = fopen(argv[1], "rt")) == NULL)
   {
 	  printf("\nNo se puede abrir el archivo: %s\n", argv[1]);
@@ -823,15 +831,16 @@ char* negarOperador(char* operador){
 		return "BGE";
 }
 
-void push(int item)
-{	printf("funcion push: %d\n",item);
+void push(node **top,int item)
+{	
+	printf("funcion push: %d\n",item);
     struct node *nptr = malloc(sizeof(struct node));
     nptr->data = item;
-    nptr->next = top;
-    top = nptr;
+    nptr->next = *top;
+    *top = nptr;
 }
 
-void display()
+void display(node* top)
 {
     struct node *temp;
     temp = top;
@@ -842,10 +851,10 @@ void display()
     }
 }
 
-int pop()
+int pop(node** top)
 {
 	int num;
-    if (top == NULL)
+    if (*top == NULL)
     {
         printf("\n\nERROR: La pila esta vacia\n");
 		return -1;
@@ -853,8 +862,8 @@ int pop()
     else
     {
         struct node *temp;
-        temp = top;
-        top = top->next;
+        temp = *top;
+        *top = (*top)->next;
         num=temp->data;
         free(temp);
 		printf("funcion pop: %d\n",num);
@@ -862,7 +871,7 @@ int pop()
     }
 }
 
-int isEmpty(){
-	printf("Funcion isEmpty: %s\n",top == NULL?"true":"False");
-	return top == NULL;
+int isEmpty(node** top){
+	printf("Funcion isEmpty: %s\n",*top == NULL?"true":"False");
+	return *top == NULL;
 }
