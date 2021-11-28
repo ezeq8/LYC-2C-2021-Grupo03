@@ -14,6 +14,7 @@
 	#define CteInt 4
 	#define CteReal 5
 	#define CteString 6
+	#define Undefined -1
 
 	#define TAMANIO_TABLA 3000
 	#define TAM_NOMBRE 32
@@ -31,7 +32,14 @@
 	int buscarEnTabla(char * name);
 	void escribirNombreEnTabla(char* nombre, int pos);
 	void guardarTabla(void);
-	 char* definirOperador(char* operador);
+	char* definirOperador(char* operador);
+	int obtenerTipoDeSimbolo(char * name);
+	int tablaDeSintesisExpresion(int tipo1, int tipo2);
+	int compararCompatibilidadTiposDato(int tipo1,int tipo2);
+	int esTipoDatoString(int tipo);
+	int esTipoDatoInt(int tipo);
+	int esTipoDatoFloat(int tipo);
+
 
 	int yystopparser=0;
 	FILE  *yyin;
@@ -76,6 +84,11 @@
 	int decision_ind=-1;
 	int expresion_lado_izq_comp_ind=-1;
 	int expresion_lado_der_comp_ind=-1;
+	int factor_tipo;
+	int termino_tipo;
+	int expresion_tipo;
+	int expresion_lado_izq_comp_ind_tipo;
+	int expresion_lado_der_comp_ind_tipo;
 	FILE* pfint;
 	int intermedia_creada_con_exito=0;
 	char aux_operador[30];
@@ -271,9 +284,13 @@ asignacion:
 	ID OP_ASIG expresion P_Y_C {
                                 chequearVarEnTabla($1);
                                 printf("Regla ASIGNACION es id:=expresion;\n");
+								int id_tipo=obtenerTipoDeSimbolo($1);
+								if(!compararCompatibilidadTiposDato(id_tipo,expresion_tipo))
+									yyerror("El tipo de dato de la variable no es compatible con el de la expresion\n");
 								char aux1[30];
 								sprintf(aux1,"[%d]",expresion_ind);
 								asignacion_ind=agregarTerceto(crearNuevoTerceto(":=",$1,aux1));
+								
                               }
 ;
 
@@ -292,7 +309,6 @@ if:
 						printf("Regla IF es if(decision){bloque} else {bloque}\n");
 						int z=pop(&pila_condiciones);
 						char aux[30];
-						printf("aaaa");
 						sprintf(aux,"[%d]",proximo_terceto());
 						modificarTerceto(z,2,aux);
 						}  //TODO: devuelve un error de conflicto cuando intento agregar accion semantica en el medio de la regla si estan las 2 reglas del if (if y if else)	
@@ -314,6 +330,10 @@ condicion:
 									char aux2[30];
 									sprintf(aux1,"[%d]",expresion_lado_izq_comp_ind);
 									sprintf(aux2,"[%d]",expresion_lado_der_comp_ind);
+									if(!compararCompatibilidadTiposDato(expresion_lado_izq_comp_ind_tipo,expresion_lado_der_comp_ind_tipo))
+										yyerror("Los tipos de datos no pueden compararse");
+									if(esTipoDatoString(expresion_lado_izq_comp_ind_tipo)||esTipoDatoString(expresion_lado_der_comp_ind_tipo))
+										yyerror("El tipo de dato String no puede usarse en una comparacion");
 									agregarTerceto(crearNuevoTerceto("CMP",aux1,aux2));
 									condicion_ind=agregarTerceto(crearNuevoTerceto(definirOperador($2),NULL,NULL));
 									push(&pila_condiciones,condicion_ind);
@@ -322,8 +342,8 @@ condicion:
   |equmin						{printf("Regla CONDICION es equmin\n");condicion_ind=equmin_ind;push(&pila_condiciones,condicion_ind);}
 ;
 
-expresion_lado_izq_comp: expresion{expresion_lado_izq_comp_ind=expresion_ind;};
-expresion_lado_der_comp: expresion{expresion_lado_der_comp_ind=expresion_ind;};
+expresion_lado_izq_comp: expresion {expresion_lado_izq_comp_ind=expresion_ind;expresion_lado_izq_comp_ind_tipo=expresion_tipo;};
+expresion_lado_der_comp: expresion {expresion_lado_der_comp_ind=expresion_ind;expresion_lado_der_comp_ind_tipo=expresion_tipo;};
 
 
 
@@ -342,15 +362,25 @@ expresion:
 								sprintf(aux1,"[%d]",expresion_ind);
 								sprintf(aux2,"[%d]",termino_ind);
 								expresion_ind=agregarTerceto(crearNuevoTerceto("+",aux1,aux2));		//TODO: Cambiar a $2 y definir tipo de dato como string
+								int aux_tipo=tablaDeSintesisExpresion(expresion_tipo,termino_tipo);
+								if(esTipoDatoString(aux_tipo))
+									yyerror("no se puede usar un string en una operacion aritmetica");
+								expresion_tipo=aux_tipo;
 								}
 	|expresion OP_REST termino  {printf("Regla EXPRESION es expresion-termino\n");
 								char aux1[30],aux2[30];
 								sprintf(aux1,"[%d]",expresion_ind);
 								sprintf(aux2,"[%d]",termino_ind);
-								expresion_ind=agregarTerceto(crearNuevoTerceto("-",aux1,aux2));}
-  |termino                    {printf("Regla EXPRESION es termino\n");
+								expresion_ind=agregarTerceto(crearNuevoTerceto("-",aux1,aux2));
+								int aux_tipo=tablaDeSintesisExpresion(expresion_tipo,termino_tipo);
+								if(esTipoDatoString(aux_tipo))
+									yyerror("no se puede usar un string en una operacion aritmetica");
+								expresion_tipo=aux_tipo;
+								}
+  |termino                  	{printf("Regla EXPRESION es termino\n");
   								expresion_ind=termino_ind;
-								  }
+								expresion_tipo=termino_tipo;
+								}
 ;
 
 termino: 
@@ -359,46 +389,60 @@ termino:
 								sprintf(aux1,"[%d]",termino_ind);
 								sprintf(aux2,"[%d]",factor_ind);
 								termino_ind=agregarTerceto(crearNuevoTerceto("*",aux1,aux2));
+								int aux_tipo=tablaDeSintesisExpresion(termino_tipo,factor_tipo);
+								if(esTipoDatoString(aux_tipo))
+									yyerror("no se puede usar un string en una operacion aritmetica");
+								termino_tipo=aux_tipo;
   								}
 	|termino OP_DIVI factor     {printf("Regla TERMINO es termino/factor\n");
 								char aux1[30],aux2[30];
 								sprintf(aux1,"[%d]",termino_ind);
 								sprintf(aux2,"[%d]",factor_ind);
 								termino_ind=agregarTerceto(crearNuevoTerceto("/",aux1,aux2));
+								int aux_tipo=tablaDeSintesisExpresion(termino_tipo,factor_tipo);
+								if(esTipoDatoString(aux_tipo))
+									yyerror("no se puede usar un string en una operacion aritmetica");
+								termino_tipo=aux_tipo;
 								}
   |factor                     {printf("Regla TERMINO es factor\n");
   								termino_ind=factor_ind;
-								  }
+								termino_tipo=factor_tipo;  
+							  }
 ;
 
 factor:
   P_A {/*push(&pila_factores,factor_ind);*/push(&pila_terminos,termino_ind);push(&pila_expresiones,expresion_ind);} expresion P_C { printf("Regla FACTOR es (expresion)\n");  //Haria falta una pila de expresiones para apilar expresiones ???
   																						factor_ind=expresion_ind;
+																						factor_tipo=expresion_tipo;			//TODO: Revisar si esto esta bien ubicado (va antes o despues de desapilar???)
 																						//factor_ind=pop(&pila_factores);  //Segun entiendo no haria falta pila_factor porque al terminar de reconocer esta regla la instruccion de arriba siempre va a pisar a esta. esta instruccion no deberia pisar a la de arriba
 																						termino_ind=pop(&pila_terminos);
 																						expresion_ind=pop(&pila_expresiones);
 																					  }
 	|ID                         {
                                 printf("Regla FACTOR es id\n");
-                                chequearVarEnTabla(yylval.valor_string); 
+                                chequearVarEnTabla(yylval.valor_string);
+								factor_tipo=obtenerTipoDeSimbolo(yylval.valor_string);
 								factor_ind=agregarTerceto(crearNuevoTerceto(yylval.valor_string,NULL,NULL)); 
                               }
 	|CTE_STRING                 {
                                 printf("Regla FACTOR es cte_string\n");
-                                agregarCteStringATabla(yylval.valor_string);
+								agregarCteStringATabla(yylval.valor_string);
+								factor_tipo=String;
 								factor_ind=agregarTerceto(crearNuevoTerceto(yylval.valor_string,NULL,NULL));
                               }
 	|CTE_INT                    {
                                 printf("Regla FACTOR es cte_int\n");
-                                agregarCteIntATabla(yylval.valor_int); 
+                                agregarCteIntATabla(yylval.valor_int);
+								factor_tipo=Integer;
 								char aux[30];
 								sprintf(aux,"%d",yylval.valor_int);
 								factor_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));
                               }
 	|CTE_REAL                   {
                                 printf("Regla FACTOR es cte_real\n");
+								factor_tipo=CteReal;
                                 agregarCteRealATabla(yylval.valor_float);char aux[30];
-								sprintf(aux,"%f",yylval.valor_int);
+								sprintf(aux,"%f",yylval.valor_float);
 								factor_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));
 }
 ;
@@ -720,6 +764,43 @@ void chequearVarEnTabla(char* nombre){
 }
 
 
+// hay que llamar primero a chequearVarEnTabla antes de llamar a esta funcion
+int obtenerTipoDeSimbolo(char * name){
+   return tabla_simbolo[buscarEnTabla(name)].tipo_dato;
+}
+
+int tablaDeSintesisExpresion(int tipo1, int tipo2){
+
+	printf("\nFuncion tablaDeSintesisExpresion: %d %d\n",tipo1,tipo2);
+	if(esTipoDatoString(tipo1)||esTipoDatoString(tipo2))
+		return String;
+	if(esTipoDatoFloat(tipo1)||esTipoDatoFloat(tipo2)) 
+		return Float;
+	if(esTipoDatoInt(tipo1) && esTipoDatoInt(tipo2))
+		return Integer;
+	return Undefined;
+}
+
+int compararCompatibilidadTiposDato(int tipo1,int tipo2){
+	return 	  (esTipoDatoString(tipo1) && esTipoDatoString(tipo2))
+			||(esTipoDatoInt(tipo1) && esTipoDatoInt(tipo2))
+			||(esTipoDatoFloat(tipo1) && esTipoDatoFloat(tipo2));
+}
+
+int esTipoDatoString(int tipo){
+	return tipo==String || tipo == CteString;
+}
+
+int esTipoDatoInt(int tipo){
+	return tipo==Integer || tipo == CteInt;
+}
+int esTipoDatoFloat(int tipo){
+	return tipo==Float || tipo == CteReal;
+}
+
+
+
+
 terceto crearNuevoTerceto(char * elem1,char* elem2,char* elem3){
 	terceto terc;
 	printf("funcion crearNuevoTerceto. elementos: %s %s %s\n",elem1,elem2,elem3);
@@ -830,6 +911,7 @@ char* negarOperador(char* operador){
 	if(!strcmp(operador,"BLT"))
 		return "BGE";
 }
+
 
 void push(node **top,int item)
 {	
