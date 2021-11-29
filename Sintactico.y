@@ -84,11 +84,13 @@
 	int decision_ind=-1;
 	int expresion_lado_izq_comp_ind=-1;
 	int expresion_lado_der_comp_ind=-1;
+	int lista_expresion_ind=-1;
 	int factor_tipo;
 	int termino_tipo;
 	int expresion_tipo;
 	int expresion_lado_izq_comp_ind_tipo;
 	int expresion_lado_der_comp_ind_tipo;
+	
 	FILE* pfint;
 	int intermedia_creada_con_exito=0;
 	char aux_operador[30];
@@ -277,7 +279,36 @@ ciclo:
 ;
 
 ciclo_especial:
-	WHILE ID IN C_A lista_expresion C_C DO LL_A bloque LL_C ENDWHILE {printf("Regla CICLO ESPECIAL es while especial(lista_expresion){bloque}\n");}
+	WHILE ID{
+				chequearVarEnTabla($2);
+				int aux=agregarTerceto(crearNuevoTerceto($2,NULL,NULL));
+				char aux1[30];
+				sprintf(aux1,"[%d]",aux);
+				agregarTerceto(crearNuevoTerceto(":=","@aux",aux1));
+				push(&pila_condiciones,proximo_terceto());
+	} IN C_A lista_expresion C_C DO LL_A 	{
+												int aux_bne=pop(&pila_condiciones);
+												int z=pop(&pila_condiciones);
+												char aux[30];
+												while(!isEmpty(&pila_condiciones)){
+													sprintf(aux,"[%d]",proximo_terceto());
+													modificarTerceto(z,2,aux);
+													z=pop(&pila_condiciones);
+												}
+												
+												push(&pila_condiciones,aux_bne);
+												push(&pila_condiciones,z);
+											}bloque LL_C ENDWHILE {
+																printf("Regla CICLO ESPECIAL es while especial(lista_expresion){bloque}\n");
+																int z=pop(&pila_condiciones);
+																char aux[30];
+																sprintf(aux,"[%d]",z);
+																agregarTerceto(crearNuevoTerceto("BI",aux,NULL));
+																z=pop(&pila_condiciones);
+																sprintf(aux,"[%d]",proximo_terceto());
+																modificarTerceto(z,1,"BNE");															
+																modificarTerceto(z,2,aux);															
+																}
 ;
 
 asignacion: 
@@ -448,8 +479,31 @@ factor:
 ;
 
 lista_expresion:
-  lista_expresion COMA expresion {printf("Regla LISTA_EXPRESION es lista_expresion,expresion\n");}
-  | expresion                     {printf("Regla LISTA_EXPRESION es expresion\n");}
+  lista_expresion COMA expresion {
+	  								printf("Regla LISTA_EXPRESION es lista_expresion,expresion\n");
+									char aux1[30];
+									sprintf(aux1,"[%d]",expresion_ind);
+									agregarTerceto(crearNuevoTerceto(":=","@aux_expr",aux1));
+									agregarTerceto(crearNuevoTerceto("CMP","@aux","@aux_expr"));
+									int aux=agregarTerceto(crearNuevoTerceto("BEQ",NULL,NULL));
+									push(&pila_condiciones,aux);
+  								  }
+  | expresion                     {
+	  								printf("Regla LISTA_EXPRESION es expresion\n");
+									char aux1[30];
+									sprintf(aux1,"[%d]",expresion_ind);
+									agregarTerceto(crearNuevoTerceto(":=","@aux_expr",aux1));
+									agregarTerceto(crearNuevoTerceto("CMP","@aux","@aux_expr"));
+									int aux=agregarTerceto(crearNuevoTerceto("BEQ",NULL,NULL));
+									push(&pila_condiciones,aux);
+
+
+									
+
+
+										  
+									  
+								  }
 ;
 
 salida:
