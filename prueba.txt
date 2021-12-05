@@ -1,7 +1,7 @@
 */ZONA DE DECLARACION DE VARIABLES/*
 */ANIDADOOOO*/ZONA DE DECLARACION DE VARIABLES/* uwu/*
 
-DIM [A,B,C,D,E,G,F,W] AS [INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, STRING, STRING, FLOAT]
+DIM [A,B,C,D,E,G,F,W,l,i,j,k] AS [INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, STRING, STRING, FLOAT,INTEGER,INTEGER,INTEGER,INTEGER]
 
 */ASIGNACIONES/*
 A := 5;
@@ -24,8 +24,6 @@ ELSE
 	D:=4;
 }
 
-G:= "HOL.A";
-F:="HOLA TODO BIEN";
 E:= 12;
 
 */WHILE/*
@@ -33,7 +31,12 @@ WHILE(E > B)
 {
 	E:= E - 1;
 }
+ 
+ */WHILE ESPECIAL/*
 
+ WHILE A IN [2,3,4] DO{
+	 B:=B+1;
+ }ENDWHILE
 
 */PRINT/*
 DISPLAY "Mostrar por pantalla";
@@ -43,17 +46,35 @@ DISPLAY A;
 
 */EQUMAX/*
 
-IF ( EQUMAX (10+101; [100, 111, var1] ))
+IF ( EQUMAX (10+101; [100, 111,C] ))
 {
  	D:=5;
 }
 
 
 
-*/CICLO ESPECIAL/*
-WHILE A IN [A+C,B+D]
-DO {
- E:= E +1
-} ENDWHILE 
-
-
+*/Ciclo anidado calcular mayor de 3 numeros/*
+WHILE(l<3){
+    DISPLAY "Ingrese Numero i";
+    GET i;
+    DISPLAY "Ingrese otro numero j";
+    GET j;
+    DISPLAY "Ingrese un numero mas k";
+    GET k;
+    
+    IF(i>j){
+        IF(i>k){
+            DISPLAY "i es el mayor";
+        }ELSE{
+            DISPLAY "k es mayor";
+        }
+    }
+    ELSE{
+        IF(j>k){
+            DISPLAY "j es mayor";}
+        ELSE{
+            DISPLAY "k es mayor";
+        }
+    }
+ l:=l+1;
+}

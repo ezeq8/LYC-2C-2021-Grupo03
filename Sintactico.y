@@ -8,7 +8,7 @@
 #include "y.tab.h"
 
 	/* Tipos de datos para la tabla de simbolos */
-  #define Integer 1
+  	#define Integer 1
 	#define Float 2
 	#define String 3
 	#define CteInt 4
@@ -17,7 +17,9 @@
 	#define Undefined -1
 
 	#define TAMANIO_TABLA 3000
-	#define TAM_NOMBRE 32
+	#define TAM_NOMBRE 33
+
+	#define SEPARADOR_PILA -1
 
 	int yylex();
 	
@@ -31,6 +33,18 @@
 	void chequearVarEnTabla(char* nombre);
 	int buscarEnTabla(char * name);
 	void escribirNombreEnTabla(char* nombre, int pos);
+	void agregarVarConTipoDeDatoATabla(char* nombre,int tipo_dato);
+	int buscarCteFloatEnTabla(float valor);
+	int buscarCteIntEnTabla(int valor);
+	int buscarCteStringEnTabla(char valor[]);
+	void escribirTablaDeSimbolosEnSeccionDataAssembler(FILE* pfasm);
+	void definirInstruccionAritmeticaAssembler(const char operador[],char instruccion_aritmetica[]);
+	void definirInstruccionAsignacionAssembler(int tipo_dato,char instruccion_asignacion[]);
+	void definirInstruccionCargaEnMemoriaAssembler(int tipo_dato,char instruccion_carga[]);
+	void definirInstruccionSaltoAssembler(char* operador,char* instruccion_salto);
+	int buscarNumeroVariableAuxiliarAssembler(char s[],int lista[],int cant);
+	int agregarEtiquetaSaltoProximoAssembler(int nro_salto);
+	int hayProximoSaltoAssembler(int nro_salto);
 	void guardarTabla(void);
 	char* definirOperador(char* operador);
 	int obtenerTipoDeSimbolo(char * name);
@@ -90,10 +104,14 @@
 	int expresion_tipo;
 	int expresion_lado_izq_comp_ind_tipo;
 	int expresion_lado_der_comp_ind_tipo;
+	int expresion_equ_tipo;
+	int id_while_especial_tipo;
+	int cant_proximo_salto=0;
+	int proximo_salto[50];
 	
 	FILE* pfint;
 	int intermedia_creada_con_exito=0;
-	char aux_operador[30];
+	char aux_operador[40];
 	
 	typedef struct node node;
 	struct node{
@@ -104,11 +122,17 @@
 
 	typedef struct {
 		int nro_terceto;
-		char elem1[30];
-		char elem2[30];
-		char elem3[30];
+		char elem1[40];
+		char elem2[40];
+		char elem3[40];
 	}terceto;
 
+	/*typedef struct {
+		int nro_terceto;
+		int tipo_dato;
+	}
+	variable_auxiliar_assembler;     BORRAR DESPUES SI NO LO USO
+	*/ 
 	terceto v_tercetos[1000];    //Funciona como una "Lista estatica". TODO: Reemplazar con una lista dinamica
 	struct node *pila_condiciones = NULL;
 	struct node *pila_factores = NULL;			
@@ -117,16 +141,19 @@
 	void display();
 	void push(node**,int);
 	int pop(node**);
+	int peek(node** top);
 	terceto crearNuevoTerceto(char * elem1,char* elem2,char* elem3);
 	int agregarTerceto(terceto terc);
 	void modificarTerceto(int nro_terceto,int nro_elem,char* txt );
 	void escribirIntermedia();
+	void generarAssembler();
 	void avanzar();
 	int ultimo_terceto_creado();
 	terceto getTerceto(int nro_terceto);
 	char* negarOperador(char* operador);
 	int isEmpty(node**);
 	int proximo_terceto();
+	
 %}
 
   /* Tipo de estructura de datos*/
@@ -177,6 +204,7 @@
 %token EQUMAX
 %token EQUMIN
 %token <valor_string>ID
+
 %type <valor_string> comparador;
 %%
 programa:  	   	   
@@ -185,12 +213,15 @@ programa:
                                     printf("COMPILACION EXITOSA\n");
                                     guardarTabla();
 									escribirIntermedia();
+									generarAssembler();
+									
                                   }
 	|bloque						{
                                     printf("Regla PROGRAMA es bloque_declaracion bloque\n");
                                     printf("COMPILACION EXITOSA\n");
                                     guardarTabla();
 									escribirIntermedia();
+									generarAssembler();
                                   }
 ;  
 
@@ -261,11 +292,15 @@ sentencia:
 ;
 
 ciclo:
-	WHILE {push(&pila_condiciones,contador_tercetos);agregarTerceto(crearNuevoTerceto("ET",NULL,NULL));}P_A decision P_C {/*push(&pila_condiciones,ultimo_terceto_creado());*//*saco el push por las decisiones anidadas. que cada decision apile su terceto*//*avanzar();*/ /**/} LL_A bloque LL_C {printf("Regla CICLO es while(decision){bloque}\n");
-																																																																char aux[30];															
+	WHILE {push(&pila_condiciones,contador_tercetos);agregarTerceto(crearNuevoTerceto("#etiq",NULL,NULL));}P_A decision P_C {
+																																/*push(&pila_condiciones,ultimo_terceto_creado());*//*saco el push por las decisiones anidadas. que cada decision apile su terceto*//*avanzar();*/ /**/
+																																push(&pila_condiciones,SEPARADOR_PILA); //apilo separador de pila antes de leer el bloque para las condiciones anidadas. el -1 divide la pila, porque no puede haber 																							
+																																																																} LL_A bloque LL_C {printf("Regla CICLO es while(decision){bloque}\n");
+																																																																char aux[40];															
 																																																																int aux1=agregarTerceto(crearNuevoTerceto("BI",NULL,NULL));		//Escribir BI
+																																																																pop(&pila_condiciones);   //saco el separador de pila (para ciclos anidados)
 																																																																int z=pop(&pila_condiciones);printf("Desapilando En el while\n");													//z=Desaplilar(tope de pila)
-																																																																while(!isEmpty(&pila_condiciones)){    //Los primeros n elementos de la pila corresponden a las n condiciones. el ultimo elemento (fondo de pila) corresponde a la etiqueta del inicio del while.
+																																																																while(!isEmpty(&pila_condiciones)&&peek(&pila_condiciones)!=SEPARADOR_PILA){    //Los primeros n elementos de la pila corresponden a las n condiciones. el ultimo elemento (fondo de pila) corresponde a la etiqueta del inicio del while.
 																																																																	sprintf(aux,"[%d]",contador_tercetos); //escribir en terceto Z n celda actual(No hace falta sumar 1 porque el contador apunta ya al proximo terceto)
 																																																																	modificarTerceto(z,2,aux);			//escribir en terceto Z n celda actual
 																																																																	z=pop(&pila_condiciones);								
@@ -280,17 +315,21 @@ ciclo:
 
 ciclo_especial:
 	WHILE ID{
+				push(&pila_condiciones,proximo_terceto());
+				agregarTerceto(crearNuevoTerceto("#etiq",NULL,NULL));
 				chequearVarEnTabla($2);
+				id_while_especial_tipo=tabla_simbolo[buscarEnTabla($2)].tipo_dato;
 				int aux=agregarTerceto(crearNuevoTerceto($2,NULL,NULL));
-				char aux1[30];
+				char aux1[40];
 				sprintf(aux1,"[%d]",aux);
 				agregarTerceto(crearNuevoTerceto(":=","@aux",aux1));
-				push(&pila_condiciones,proximo_terceto());
+				agregarVarConTipoDeDatoATabla("@aux",Integer);
+				agregarVarConTipoDeDatoATabla("@aux_expr",Integer);
 	} IN C_A lista_expresion C_C DO LL_A 	{
 												int aux_bne=pop(&pila_condiciones);
 												int z=pop(&pila_condiciones);
-												char aux[30];
-												while(!isEmpty(&pila_condiciones)){
+												char aux[40];
+												while(!isEmpty(&pila_condiciones)&&peek(&pila_condiciones)!=SEPARADOR_PILA){ 
 													sprintf(aux,"[%d]",proximo_terceto());
 													modificarTerceto(z,2,aux);
 													z=pop(&pila_condiciones);
@@ -298,10 +337,12 @@ ciclo_especial:
 												
 												push(&pila_condiciones,aux_bne);
 												push(&pila_condiciones,z);
+												push(&pila_condiciones,SEPARADOR_PILA);
 											}bloque LL_C ENDWHILE {
 																printf("Regla CICLO ESPECIAL es while especial(lista_expresion){bloque}\n");
+																pop(&pila_condiciones); //Saco el separador de pila y o descarto
 																int z=pop(&pila_condiciones);
-																char aux[30];
+																char aux[40];
 																sprintf(aux,"[%d]",z);
 																agregarTerceto(crearNuevoTerceto("BI",aux,NULL));
 																z=pop(&pila_condiciones);
@@ -318,7 +359,7 @@ asignacion:
 								int id_tipo=obtenerTipoDeSimbolo($1);
 								if(!compararCompatibilidadTiposDato(id_tipo,expresion_tipo))
 									yyerror("El tipo de dato de la variable no es compatible con el de la expresion\n");
-								char aux1[30];
+								char aux1[40];
 								sprintf(aux1,"[%d]",expresion_ind);
 								asignacion_ind=agregarTerceto(crearNuevoTerceto(":=",$1,aux1));
 								
@@ -326,25 +367,40 @@ asignacion:
 ;
 
 if: 
-	IF  P_A decision P_C LL_A bloque LL_C /*El while es para las condiciones anidadas. Hay que modificar todos los tercetos de todas las condiciones*/           {printf("Regla IF es if(decision){bloque}\n");while(!isEmpty(&pila_condiciones)) {int x=pop(&pila_condiciones);char aux[30];sprintf(aux,"[%d]",contador_tercetos);modificarTerceto(x,2,aux);}}
-	|IF P_A decision P_C LL_A bloque LL_C ELSE { int z;
-												while (!isEmpty(&pila_condiciones)){
+	IF  P_A decision_if P_C LL_A bloque LL_C /*El while es para las condiciones anidadas. Hay que modificar todos los tercetos de todas las condiciones*/           
+											{	printf("Regla IF es if(decision){bloque}\n");
+												pop(&pila_condiciones);  //Saco el separador de pila y lo descarto
+												while(!isEmpty(&pila_condiciones)&&peek(&pila_condiciones)!=SEPARADOR_PILA) {
+														int x=pop(&pila_condiciones);
+														char aux[40];
+														sprintf(aux,"[%d]",contador_tercetos);
+														modificarTerceto(x,2,aux);
+												}
+											}
+	|IF P_A decision_if P_C LL_A bloque LL_C ELSE { int z;
+												pop(&pila_condiciones);  //Saco el separador de pila y lo descarto
+												while (!isEmpty(&pila_condiciones)&&peek(&pila_condiciones)!=SEPARADOR_PILA){
 													z=pop(&pila_condiciones);
-													char aux [30];
+													char aux [40];
+													
 													sprintf(aux,"[%d]",proximo_terceto()+1);   //Proximo terceto +1=terceto del BI
 													modificarTerceto(z,2,aux);
 												}
 												z=agregarTerceto(crearNuevoTerceto("BI",NULL,NULL));
 												push(&pila_condiciones,z);  //o ´push(&pila_condiciones,ultimo_terceto_creado) //Inicio del codigo del else
+												push(&pila_condiciones,SEPARADOR_PILA); //como acabo de apilar, vuelvo a poner el separador, si no, si dentro del bloque anterior al else hay otro ciclo se me van a mezclar las condiciones
 	} LL_A bloque LL_C {
 						printf("Regla IF es if(decision){bloque} else {bloque}\n");
+						pop(&pila_condiciones); //Saco el separador de pila y lo descarto
 						int z=pop(&pila_condiciones);
-						char aux[30];
+						char aux[40];
 						sprintf(aux,"[%d]",proximo_terceto());
 						modificarTerceto(z,2,aux);
 						}  //TODO: devuelve un error de conflicto cuando intento agregar accion semantica en el medio de la regla si estan las 2 reglas del if (if y if else)	
 
 ;
+
+decision_if: decision{printf("Regla DECISION_IF decision\n");push(&pila_condiciones,SEPARADOR_PILA);};  //Esta regla es para apilar el separador de pila en el if sin causar conflictos shift/reduce
 
 decision:
   condicion OP_LOGICO condicion {printf("Regla DECISION ES decision op_logico condicion\n");}  //Solo 2 condiciones maximo. No deberia ser recursiva
@@ -357,8 +413,8 @@ condicion:
 									modificarTerceto(condicion_ind,1, negarOperador(getTerceto(condicion_ind).elem1));
 									}
   |expresion_lado_izq_comp comparador expresion_lado_der_comp {printf("Regla CONDICION es expresion comparador expresion\n");  //TODO: Implementar lazy comparing para or
-									char aux1[30];
-									char aux2[30];
+									char aux1[40];
+									char aux2[40];
 									sprintf(aux1,"[%d]",expresion_lado_izq_comp_ind);
 									sprintf(aux2,"[%d]",expresion_lado_der_comp_ind);
 									if(!compararCompatibilidadTiposDato(expresion_lado_izq_comp_ind_tipo,expresion_lado_der_comp_ind_tipo))
@@ -389,7 +445,7 @@ comparador:
 
 expresion:
   expresion OP_SUMA termino   {printf("Regla EXPRESION es expresion+termino\n");
-  								char aux1[30],aux2[30];
+  								char aux1[40],aux2[40];
 								sprintf(aux1,"[%d]",expresion_ind);
 								sprintf(aux2,"[%d]",termino_ind);
 								expresion_ind=agregarTerceto(crearNuevoTerceto("+",aux1,aux2));		//TODO: Cambiar a $2 y definir tipo de dato como string
@@ -399,7 +455,7 @@ expresion:
 								expresion_tipo=aux_tipo;
 								}
 	|expresion OP_REST termino  {printf("Regla EXPRESION es expresion-termino\n");
-								char aux1[30],aux2[30];
+								char aux1[40],aux2[40];
 								sprintf(aux1,"[%d]",expresion_ind);
 								sprintf(aux2,"[%d]",termino_ind);
 								expresion_ind=agregarTerceto(crearNuevoTerceto("-",aux1,aux2));
@@ -416,7 +472,7 @@ expresion:
 
 termino: 
   termino OP_MULT factor      {printf("Regla TERMINO es termino*factor\n");
-  								char aux1[30],aux2[30];
+  								char aux1[40],aux2[40];
 								sprintf(aux1,"[%d]",termino_ind);
 								sprintf(aux2,"[%d]",factor_ind);
 								termino_ind=agregarTerceto(crearNuevoTerceto("*",aux1,aux2));
@@ -426,7 +482,7 @@ termino:
 								termino_tipo=aux_tipo;
   								}
 	|termino OP_DIVI factor     {printf("Regla TERMINO es termino/factor\n");
-								char aux1[30],aux2[30];
+								char aux1[40],aux2[40];
 								sprintf(aux1,"[%d]",termino_ind);
 								sprintf(aux2,"[%d]",factor_ind);
 								termino_ind=agregarTerceto(crearNuevoTerceto("/",aux1,aux2));
@@ -465,14 +521,14 @@ factor:
                                 printf("Regla FACTOR es cte_int\n");
                                 agregarCteIntATabla(yylval.valor_int);
 								factor_tipo=Integer;
-								char aux[30];
+								char aux[40];
 								sprintf(aux,"%d",yylval.valor_int);
 								factor_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));
                               }
 	|CTE_REAL                   {
                                 printf("Regla FACTOR es cte_real\n");
 								factor_tipo=CteReal;
-                                agregarCteRealATabla(yylval.valor_float);char aux[30];
+                                agregarCteRealATabla(yylval.valor_float);char aux[40];
 								sprintf(aux,"%f",yylval.valor_float);
 								factor_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));
 }
@@ -481,8 +537,11 @@ factor:
 lista_expresion:
   lista_expresion COMA expresion {
 	  								printf("Regla LISTA_EXPRESION es lista_expresion,expresion\n");
-									char aux1[30];
+									char aux1[40];
 									sprintf(aux1,"[%d]",expresion_ind);
+									if(!compararCompatibilidadTiposDato(id_while_especial_tipo,expresion_tipo)){
+										yyerror("Error: las expresiones de la lista del while especial deben ser del mismo tipo que el ID ");
+									}
 									agregarTerceto(crearNuevoTerceto(":=","@aux_expr",aux1));
 									agregarTerceto(crearNuevoTerceto("CMP","@aux","@aux_expr"));
 									int aux=agregarTerceto(crearNuevoTerceto("BEQ",NULL,NULL));
@@ -490,7 +549,10 @@ lista_expresion:
   								  }
   | expresion                     {
 	  								printf("Regla LISTA_EXPRESION es expresion\n");
-									char aux1[30];
+									char aux1[40];
+									if(!compararCompatibilidadTiposDato(id_while_especial_tipo,expresion_tipo)){
+										yyerror("Error: las expresiones de la lista del while especial deben ser del mismo tipo que el ID ");
+									}
 									sprintf(aux1,"[%d]",expresion_ind);
 									agregarTerceto(crearNuevoTerceto(":=","@aux_expr",aux1));
 									agregarTerceto(crearNuevoTerceto("CMP","@aux","@aux_expr"));
@@ -532,6 +594,9 @@ equmax:
 															printf("Regla EQUMAX es equmax ( expresion ; [lista_var_cte])\n");
 															int x_ind=agregarTerceto(crearNuevoTerceto("CMP","@max","@aux_expr"));
 															equmax_ind=agregarTerceto(crearNuevoTerceto("BNE",NULL,NULL));
+															agregarVarConTipoDeDatoATabla("@aux_expr",Integer);
+															agregarVarConTipoDeDatoATabla("@max",Integer);
+															agregarVarConTipoDeDatoATabla("@aux",Integer);
 														 	}
 ;
 
@@ -540,12 +605,14 @@ equmin:
 															printf("Regla EQUMIN es equmin ( expresion ; [lista_var_cte])\n");
 															int x_ind=agregarTerceto(crearNuevoTerceto("CMP","@min","@aux_expr"));
 															equmin_ind=agregarTerceto(crearNuevoTerceto("BNE",NULL,NULL));
-
+															agregarVarConTipoDeDatoATabla("@aux_expr",Integer);
+															agregarVarConTipoDeDatoATabla("@min",Integer);
+															agregarVarConTipoDeDatoATabla("@aux",Integer);
 															}
 ;
 
 lista_var_cte_equmin: lista_var_cte_equmin COMA elem_lista_equ   	{printf("Regla LISTA_VAR_CTE es lista_var_cte,elem_lista_equ\n");
-													char aux[30];
+													char aux[40];
 													sprintf(aux,"[%d]",elem_lista_equ_ind);
 													int x_ind=agregarTerceto(crearNuevoTerceto(":=","@aux",aux));
 													agregarTerceto(crearNuevoTerceto("CMP","@aux","@min"));
@@ -555,14 +622,14 @@ lista_var_cte_equmin: lista_var_cte_equmin COMA elem_lista_equ   	{printf("Regla
 													}
 			   |elem_lista_equ						{
 				   									printf("Regla LISTA_VAR_CTE es elem_lista_equ\n");
-													char aux[30];
+													char aux[40];
 													sprintf(aux,"[%d]",elem_lista_equ_ind);
 				   									agregarTerceto(crearNuevoTerceto(":=","@min",aux));
 													}
 ;
 
 lista_var_cte_equmax: lista_var_cte_equmax COMA elem_lista_equ   	{printf("Regla LISTA_VAR_CTE es lista_var_cte,elem_lista_equ\n");
-													char aux[30];
+													char aux[40];
 													sprintf(aux,"[%d]",elem_lista_equ_ind);
 													int x_ind=agregarTerceto(crearNuevoTerceto(":=","@aux",aux));
 													agregarTerceto(crearNuevoTerceto("CMP","@max","@aux"));
@@ -572,30 +639,39 @@ lista_var_cte_equmax: lista_var_cte_equmax COMA elem_lista_equ   	{printf("Regla
 													}
 			   |elem_lista_equ						{
 				   									printf("Regla LISTA_VAR_CTE es elem_lista_equ\n");
-													char aux[30];
+													char aux[40];
 													sprintf(aux,"[%d]",elem_lista_equ_ind);
 				   									agregarTerceto(crearNuevoTerceto(":=","@max",aux));
 													}
 ;
 
 elem_lista_equ: 	CTE_INT							{printf("Regla ELEM_LISTA_EQU es cte_int\n");
-													char aux[30];
+													char aux[40];
+													if(!compararCompatibilidadTiposDato(expresion_equ_tipo,Integer))
+														yyerror("Error: el tipo de dato de los elementos de la lista de equmax/equmin deben ser del mismo tipo que la expresion de equmax/equmin");
+													agregarCteIntATabla($1);
 													sprintf(aux,"%d",$1);
 													elem_lista_equ_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));
 													}
 				   |CTE_REAL						{
 					   								printf("Regla ELEM_LISTA_EQU es cte_real\n");
-													char aux[30];
-													sprintf(aux,"%s",$1);
+													char aux[40];
+													if(!compararCompatibilidadTiposDato(expresion_equ_tipo,Float))
+														yyerror("Error: el tipo de dato de los elementos de la lista de equmax/equmin deben ser del mismo tipo que la expresion de equmax/equmin");
+													agregarCteRealATabla($1);
+													sprintf(aux,"%f",$1);
 													elem_lista_equ_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));}
 													
 				   |ID							    {printf("Regla ELEM_LISTA_EQU es ID\n");
-				   									char aux[30];
+				   									chequearVarEnTabla($1);
+													if(!compararCompatibilidadTiposDato(expresion_equ_tipo,tabla_simbolo[buscarEnTabla($1)].tipo_dato))
+														yyerror("Error: el tipo de dato de los elementos de la lista de equmax/equmin deben ser del mismo tipo que la expresion de equmax/equmin");   
+				   									char aux[40];
 													sprintf(aux,"%s",$1);
 													elem_lista_equ_ind=agregarTerceto(crearNuevoTerceto(aux,NULL,NULL));}
 ;
 
-expresion_equ: expresion{char aux[30];sprintf(aux,"[%d]",expresion_ind);agregarTerceto(crearNuevoTerceto(":=","@aux_expr",aux));};
+expresion_equ: expresion{char aux[40];sprintf(aux,"[%d]",expresion_ind);agregarTerceto(crearNuevoTerceto(":=","@aux_expr",aux));expresion_equ_tipo=expresion_tipo;};
 %%
 
 int main(int argc,char *argv[])
@@ -638,6 +714,53 @@ int buscarEnTabla(char * name){
    }
    return -1;
 }
+int buscarCteStringEnTabla(char valor[]){    //Busca constante string en la tabla de simbolos por valor
+ 	int i=0;
+	char aux_valor[40];
+	if(valor[0]=='\"'){
+		strcpy(aux_valor,valor+1);  //Copio eliminando la primera comilla
+		aux_valor[strlen(aux_valor)-1]='\0';	//Elimino la segunda comilla
+	}
+	else
+		strcpy(aux_valor,valor); 
+
+	printf("Funcion buscarCteStringEnTabla: %s\n",valor);
+   	while(i<=fin_tabla){
+	   if(tabla_simbolo[i].tipo_dato==CteString && strcmp(tabla_simbolo[i].valor_s,aux_valor) == 0){
+		   return i;
+	   }
+	   i++;
+   }
+   return -1;
+}
+int buscarCteFloatEnTabla(float valor){    //Busca constante string en la tabla de simbolos por valor
+ int i=0;
+ printf("Funcion buscarCteFloatEnTabla\n");
+   while(i<=fin_tabla){
+	   if(tabla_simbolo[i].tipo_dato==CteReal && tabla_simbolo[i].valor_f==valor){
+		   return i;
+	   }
+	   i++;
+   }
+   return -1;
+}
+
+int buscarCteIntEnTabla(int valor){    //Busca constante string en la tabla de simbolos por valor
+ int i=0;
+	printf("Funcion buscarCteIntEnTabla");
+   while(i<=fin_tabla){
+	   if(tabla_simbolo[i].tipo_dato==CteInt && tabla_simbolo[i].valor_i==valor){
+		   return i;
+	   }
+	   i++;
+   }
+   return -1;
+}
+
+
+
+
+
 
 /** Escribe el nombre de una variable o constante en la posición indicada */
 void escribirNombreEnTabla(char* nombre, int pos){
@@ -723,7 +846,7 @@ void agregarCteStringATabla(char* str){
 		exit(2);
 	}
 
-	char nombre[31] = "_";
+	char nombre[40] = "__";  //doble guion bajo para diferernciar constantes string del resto y evitar que colisionen
 
 	int length = strlen(str);
 	char auxiliar[length];
@@ -735,6 +858,12 @@ void agregarCteStringATabla(char* str){
 
 	//Queda en nombre como lo voy a guardar en la tabla de simbolos 
 	strcat(nombre, auxiliar); 
+	
+	for(int i=0;i<strlen(nombre);i++){  //Reemplazo los espacios por gion
+		if(isspace(nombre[i]))
+			nombre[i]='_';
+	}
+
 
 	//Si no hay otra variable con el mismo nombre...
 	if(buscarEnTabla(nombre) == -1){
@@ -764,6 +893,7 @@ void agregarCteRealATabla(float valor){
 	//Genero el nombre
 	char nombre[12];
 	sprintf(nombre, "_%f", valor);
+	*strchr(nombre,'.')='_';
 
 	//Si no hay otra variable con el mismo nombre...
 	if(buscarEnTabla(nombre) == -1){
@@ -788,7 +918,7 @@ void agregarCteIntATabla(int valor){
 	}
 
 	//Genero el nombre
-	char nombre[30];
+	char nombre[40];
 	sprintf(nombre, "_%d", valor);
 
 	//Si no hay otra variable con el mismo nombre...
@@ -821,6 +951,25 @@ void chequearVarEnTabla(char* nombre){
 // hay que llamar primero a chequearVarEnTabla antes de llamar a esta funcion
 int obtenerTipoDeSimbolo(char * name){
    return tabla_simbolo[buscarEnTabla(name)].tipo_dato;
+}
+
+
+void agregarVarConTipoDeDatoATabla(char* nombre,int tipo_dato){
+	printf("Funcion agregarVarConTipoDeDatoATabla: %s %d",nombre,tipo_dato);
+
+	if(fin_tabla >= TAMANIO_TABLA - 1){
+		 printf("Error: No hay mas espacio en la tabla de simbolos.\n");
+		 system("Pause");
+		 exit(2);
+	 }
+	 //Si no existe en la tabla, lo agrega
+	 if(buscarEnTabla(nombre) == -1){
+		fin_tabla++;
+		strcpy(tabla_simbolo[fin_tabla].nombre, nombre);
+		tabla_simbolo[fin_tabla].tipo_dato=tipo_dato;
+
+	 }
+
 }
 
 int tablaDeSintesisExpresion(int tipo1, int tipo2){
@@ -936,6 +1085,7 @@ int proximo_terceto(){
 
 
 char* definirOperador(char* operador){
+	printf("Funcion definirOperador; %s",operador);
 	if(!strcmp(	operador,	">="))
 		return "BLT";
 	else if(!strcmp(operador,">"))
@@ -1006,8 +1156,274 @@ int pop(node** top)
 		return num;
     }
 }
-
+int peek(node** top){
+	if (*top == NULL)
+    {
+        printf("\n\nERROR: La pila esta vacia\n");
+		return -1;
+    }
+	return (*top)->data;
+}
 int isEmpty(node** top){
 	printf("Funcion isEmpty: %s\n",*top == NULL?"true":"False");
 	return *top == NULL;
+}
+
+
+void generarAssembler(){
+
+	const char header []="INCLUDE macros2.asm      ;incluye macros\nINCLUDE number.asm       ;incluye el asm para impresion de numeros\n\nMODEL LARGE\n.386\n.STACK 200h\n.DATA\n\n"; 
+	const char code_init[]=".CODE\nstart:\nmov AX,@DATA\nmov DS,AX\nmov es,ax\n\n";
+	const char trailer[]="mov ax,4c00h\nint 21h\n\nEND start";
+	FILE* pfasm=fopen("Final.asm","w");
+	char lista_code_assembler[1000][60];
+	int cont_aux=-1;
+	int lista_var_aux[50];
+	int i_terceto=0,i_assembler=0;
+	char aux_string[40];
+	int i; //borrar despues
+	if(!pfasm){
+		printf("Error: No se pudo crear el archivo de assembler");
+		exit(1);
+	}
+
+	fprintf(pfasm,header);
+	escribirTablaDeSimbolosEnSeccionDataAssembler(pfasm);
+
+	for(i_terceto=0;i_terceto<=ultimo_terceto_creado();i_terceto++){
+		terceto aux=v_tercetos[i_terceto];
+		int ind;
+		if(hayProximoSaltoAssembler(i_terceto))
+			sprintf(lista_code_assembler[i_assembler++],"\netiq_%d:",i_terceto);
+		if(!strcmp(aux.elem1,"DISPLAY")){
+			printf("DEBUG: DISPLAY\n");
+			if(aux.elem2[0]=='"'){
+				ind=buscarCteStringEnTabla(aux.elem2);
+				sprintf(lista_code_assembler[i_assembler++],"\tDisplayString %s\n\tnewLine 1\n",tabla_simbolo[ind].nombre);
+			}
+			else{
+				int aux_tipo_dato=tabla_simbolo[buscarEnTabla(aux.elem2)].tipo_dato;
+				if(aux_tipo_dato==Integer)
+					sprintf(lista_code_assembler[i_assembler++],"\tDisplayInteger %s\n\tnewLine 1\n",aux.elem2);
+				else if(aux_tipo_dato==Float)
+					sprintf(lista_code_assembler[i_assembler++],"\tDisplayFloat %s, 3\n\tnewLine 1\n",aux.elem2);
+				else if(aux_tipo_dato==String)
+					sprintf(lista_code_assembler[i_assembler++],"\tDisplayString %s\n\tnewLine 1\n",aux.elem2);
+			}
+		}
+		if(!strcmp(aux.elem1,"GET")){
+			printf("DEBUG: GET");
+			int aux_tipo_dato=tabla_simbolo[buscarEnTabla(aux.elem2)].tipo_dato;
+				if(aux_tipo_dato==Integer)
+					sprintf(lista_code_assembler[i_assembler++],"\tGetInteger %s",aux.elem2);
+				else if(aux_tipo_dato==Float)
+					sprintf(lista_code_assembler[i_assembler++],"\tGetFloat %s",aux.elem2);
+				else if(aux_tipo_dato==String)
+					sprintf(lista_code_assembler[i_assembler++],"\tGetString %s",aux.elem2);
+
+		}
+		if(!strcmp(aux.elem1,"+")||!strcmp(aux.elem1,"-")||!strcmp(aux.elem1,"*")||!strcmp(aux.elem1,"/")){
+			printf("DEBUG: ARITMETICA\n");
+			char instruccion_aritmetica[5];
+			definirInstruccionAritmeticaAssembler(aux.elem1,instruccion_aritmetica);
+			int nro_variable_auxiliar_izq,nro_variable_auxiliar_der;
+			if(aux.elem2[0]=='['){       //Por ahora asumo que la unica posibilidad es que esto sea un terceto
+				nro_variable_auxiliar_izq=buscarNumeroVariableAuxiliarAssembler(aux.elem2,lista_var_aux,cont_aux);
+			}
+			if(aux.elem3[0]=='['){       //Por ahora asumo que la unica posibilidad es que esto sea un terceto
+				nro_variable_auxiliar_der=buscarNumeroVariableAuxiliarAssembler(aux.elem3,lista_var_aux,cont_aux);
+			}
+			cont_aux++;
+			lista_var_aux[cont_aux]=i_terceto;
+			
+			sprintf(lista_code_assembler[i_assembler++],"\tfld aux%d\n\tfld aux%d\n\t%s\n\tfstp aux%d\n",nro_variable_auxiliar_izq,nro_variable_auxiliar_der,instruccion_aritmetica,cont_aux);
+		}
+		if(!strcmp(aux.elem1,":="))
+		{
+			printf("DEBUG: ASIGNACION\n");
+			char instruccion_asignacion[6];
+			int tipo_dato=tabla_simbolo[buscarEnTabla(aux.elem2)].tipo_dato;
+			int nro_variable_auxiliar_der;
+			definirInstruccionAsignacionAssembler(tipo_dato,instruccion_asignacion);
+			if(aux.elem3[0]=='['){  //Por ahora supongo que esto solo ouede ser un indica de otro terceto
+				nro_variable_auxiliar_der=buscarNumeroVariableAuxiliarAssembler(aux.elem3,lista_var_aux,cont_aux);
+			}
+
+			sprintf(lista_code_assembler[i_assembler++],"\tfld aux%d\n\t%s %s\n",nro_variable_auxiliar_der,instruccion_asignacion,aux.elem2);
+		}
+		if(aux.elem1[0] !='#' && strcmp(aux.elem1,"BI") && strlen(aux.elem2) == 1 && strlen(aux.elem3) == 1 && aux.elem2[0] == TERCETO_VACIO && aux.elem2[0] == TERCETO_VACIO){ //pregunta si es un terceto de un unico elemento, o sea un terceto de declaracion de variable o constante. TODO: buscar una mejor forma de identificarlo
+			printf("DEBUG: CARGA EN MEMORIA\n");
+			char instruccion_carga[5];
+			int ind;
+			int tipo_dato;
+			
+			if(aux.elem1[0]=='\"')	
+				ind=buscarCteStringEnTabla(aux.elem1);
+			else if (strchr(aux.elem1,'.')!= NULL)
+				ind=buscarCteFloatEnTabla(atof(aux.elem1));
+			else if(isdigit(aux.elem1[0])){
+				
+				ind=buscarCteIntEnTabla(atoi(aux.elem1));}
+			else
+				ind=buscarEnTabla(aux.elem1);
+			
+			tipo_dato=tabla_simbolo[ind].tipo_dato;  //TODO, constantes. queda pendiente
+			
+			definirInstruccionCargaEnMemoriaAssembler(tipo_dato,instruccion_carga);
+			
+			cont_aux++;
+			lista_var_aux[cont_aux]=i_terceto;
+			
+			sprintf(lista_code_assembler[i_assembler++],"\n\t%s %s\n\tFSTP aux%d\n\tffree\n",instruccion_carga,tabla_simbolo[ind].nombre,cont_aux);
+		}
+		if(!strcmp(aux.elem1,"CMP")){
+			printf("DEBUG: CMP");
+			char operador1[31];
+			char operador2[31];
+			if(aux.elem2[0]=='[')
+				sprintf(operador1,"aux%d",buscarNumeroVariableAuxiliarAssembler(aux.elem2,lista_var_aux,cont_aux));
+			else
+				strcpy(operador1,aux.elem2);
+			if(aux.elem3[0]=='['){
+				sprintf(operador2,"aux%d",buscarNumeroVariableAuxiliarAssembler(aux.elem3,lista_var_aux,cont_aux));
+			}
+			else{
+				strcpy(operador2,aux.elem3);
+
+				}
+			aux=v_tercetos[++i_terceto];		//Leo el proximo terceto, ya se que es un branch porque siempre despues de cmp viene un branch
+			int nro_salto;
+			sscanf(aux.elem2,"[%d]",&nro_salto);
+			char etiqueta[10];
+			char instruccion_salto[5];
+			definirInstruccionSaltoAssembler(aux.elem1,instruccion_salto);
+			if(nro_salto>i_terceto){  //Si tengo que saltar a un terceto que todavia no escribi, lo guardo para crear la etiqueta cuando llegue el terceto
+				agregarEtiquetaSaltoProximoAssembler(nro_salto);
+			}
+			sprintf(lista_code_assembler[i_assembler++],"\tfld  %s\n\tfcomp %s\n\tfstsw ax\n\tsahf\n\t%s etiq_%d\n",operador1,operador2,instruccion_salto,nro_salto);
+		}
+		if(aux.elem1[0]=='#'){  //Etiqueta
+			if(!hayProximoSaltoAssembler(i_terceto)) //Para evitar agregar 2 veces la etiqueta. si esta como proximo salto no hace falta agregarla, se va a agregar al principio.
+				sprintf(lista_code_assembler[i_assembler++],"etiq_%d:\n",aux.nro_terceto);  //+1 para no imprimir el #
+
+		}
+		if(!strcmp(aux.elem1,"BI")){
+			int nro_salto;
+			sscanf(aux.elem2,"[%d]",&nro_salto);
+			sprintf(lista_code_assembler[i_assembler++],"\tJMP etiq_%d\n",nro_salto);
+			if(nro_salto>i_terceto){  //Si tengo que saltar a un terceto que todavia no escribi, lo guardo para crear la etiqueta cuando llegue el terceto
+				agregarEtiquetaSaltoProximoAssembler(nro_salto);
+			}
+
+		}
+
+
+		
+	}
+	if(hayProximoSaltoAssembler(i_terceto))
+			sprintf(lista_code_assembler[i_assembler++],"\netiq_%d:",i_terceto);
+
+	for(int j=0;j<=cont_aux;j++){
+		fprintf(pfasm,"aux%d	dd	?\n",j);
+	}
+
+	fprintf(pfasm,"\n\n%s",code_init);
+	
+	for(int j=0;j<i_assembler;j++){
+		fprintf(pfasm,"%s\n",lista_code_assembler[j]);
+	}
+	fprintf(pfasm,"\n\n%s",trailer);
+	fclose(pfasm);
+
+}
+
+
+
+void escribirTablaDeSimbolosEnSeccionDataAssembler(FILE* pfasm){
+	int i;
+	simbolo aux;
+	for(i=0;i<=fin_tabla;i++){
+		aux=tabla_simbolo[i];
+		if(aux.tipo_dato==Integer || aux.tipo_dato == Float)
+			fprintf(pfasm,"%s\tdd\t?\n",aux.nombre);
+		if(aux.tipo_dato==String)
+			fprintf(pfasm,"%s\tdb\t?\n",aux.nombre);
+		if(aux.tipo_dato==CteInt)
+			fprintf(pfasm,"%s\tdd\t%d\n",aux.nombre,aux.valor_i);
+		if(aux.tipo_dato == CteReal)
+			fprintf(pfasm,"%s\tdd\t%f\n",aux.nombre,aux.valor_f);
+		if(aux.tipo_dato==CteString)
+			fprintf(pfasm,"%s\tdb\t'%s$'\n",aux.nombre,aux.valor_s);
+	}
+
+}
+
+void definirInstruccionAritmeticaAssembler(const char operador[],char instruccion_aritmetica[]){
+	if(!strcmp(operador,"+"))
+		strcpy(instruccion_aritmetica,"FADD");
+	if(!strcmp(operador,"/"))
+		strcpy(instruccion_aritmetica,"FDIV");
+	if(!strcmp(operador,"-"))
+		strcpy(instruccion_aritmetica,"FSUB");
+	if(!strcmp(operador,"*"))
+		strcpy(instruccion_aritmetica,"FMUL");
+}
+
+void definirInstruccionAsignacionAssembler(int tipo_dato,char instruccion_asignacion[]){
+	printf("definirInstruccionAsignacionAssembler: %d",tipo_dato);
+	if(tipo_dato==Float)
+		strcpy(instruccion_asignacion,"FSTP");
+	if(tipo_dato==Integer)
+		strcpy(instruccion_asignacion,"FISTP");
+	//TODO: Que se hace con el string??. no creo que se lo cargue en la pila del coprocesador
+}
+
+void definirInstruccionCargaEnMemoriaAssembler(int tipo_dato,char instruccion_carga[]){
+	if(tipo_dato==Float||tipo_dato==CteReal)
+		strcpy(instruccion_carga,"FLD");
+	if(tipo_dato==Integer||tipo_dato==CteInt)
+		strcpy(instruccion_carga,"FILD");
+}
+
+
+void definirInstruccionSaltoAssembler(char* operador,char* instruccion_salto){
+	if(!strcmp(operador,"BLT"))
+		strcpy(instruccion_salto,"JB");
+	else if (!strcmp(operador,"BLE"))
+		strcpy(instruccion_salto,"JNA");
+	else if (!strcmp(operador,"BGT"))
+		strcpy(instruccion_salto,"JA");
+	else if (!strcmp(operador,"BGE"))
+		strcpy(instruccion_salto,"JAE");
+	else if (!strcmp(operador,"BEQ"))
+		strcpy(instruccion_salto,"JE");
+	else if (!strcmp(operador,"BNE"))
+		strcpy(instruccion_salto,"JNE");
+
+}
+
+int buscarNumeroVariableAuxiliarAssembler(char s[],int lista[],int cant){
+	int aux;
+	int i;
+	sscanf(s,"[%d]",&aux);
+	
+	
+	for(i=0;i<=cant;i++){
+		if(lista[i]==aux)
+			return i;
+	}
+	printf("Error: no se encuentra la variable auxiliar donde se cargo el terceto: %s",s );
+	exit(1);
+}
+int agregarEtiquetaSaltoProximoAssembler(int nro_salto){
+	printf("Funcion agregarEtiquetaSaltoProximoAssembler::: %d",nro_salto);
+	proximo_salto[cant_proximo_salto++]=nro_salto;
+}
+
+int hayProximoSaltoAssembler(int nro_terceto){
+	printf("HayProximoSaltoAssembler: %d\n",nro_terceto);
+	for(int i=0;i<cant_proximo_salto;i++)
+		if(proximo_salto[i]==nro_terceto)
+			return 1;
+	return 0;
 }

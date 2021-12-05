@@ -3,9 +3,34 @@ NOMBRE                        |TIPO                          |VALOR             
 A                             |INTEGER                       |--                            |--                            
 B                             |INTEGER                       |--                            |--                            
 C                             |INTEGER                       |--                            |--                            
-_2                            |CTE_INT                       |2                             |--                            
+D                             |INTEGER                       |--                            |--                            
+E                             |INTEGER                       |--                            |--                            
+G                             |STRING                        |--                            |--                            
+F                             |STRING                        |--                            |--                            
+W                             |FLOAT                         |--                            |--                            
+l                             |INTEGER                       |--                            |--                            
+i                             |INTEGER                       |--                            |--                            
+j                             |INTEGER                       |--                            |--                            
+k                             |INTEGER                       |--                            |--                            
+_5                            |CTE_INT                       |5                             |--                            
+_10                           |CTE_INT                       |10                            |--                            
+_15                           |CTE_INT                       |15                            |--                            
+_4                            |CTE_INT                       |4                             |--                            
 _9                            |CTE_INT                       |9                             |--                            
-_6                            |CTE_INT                       |6                             |--                            
-_Hola Mundo                   |CTE_STRING                    |Hola Mundo                    |10                            
+_12                           |CTE_INT                       |12                            |--                            
 _1                            |CTE_INT                       |1                             |--                            
-_8                            |CTE_INT                       |8                             |--                            
+@aux                          |INTEGER                       |--                            |--                            
+@aux_expr                     |INTEGER                       |--                            |--                            
+_2                            |CTE_INT                       |2                             |--                            
+_3                            |CTE_INT                       |3                             |--                            
+__Mostrar_por_pantalla        |CTE_STRING                    |Mostrar por pantalla          |20                            
+_101                          |CTE_INT                       |101                           |--                            
+_100                          |CTE_INT                       |100                           |--                            
+_111                          |CTE_INT                       |111                           |--                            
+@max                          |INTEGER                       |--                            |--                            
+__Ingrese_Numero_i            |CTE_STRING                    |Ingrese Numero i              |16                            
+__Ingrese_otro_numero_j       |CTE_STRING                    |Ingrese otro numero j         |21                            
+__Ingrese_un_numero_mas_k     |CTE_STRING                    |Ingrese un numero mas k       |23                            
+__i_es_el_mayor               |CTE_STRING                    |i es el mayor                 |13                            
+__k_es_mayor                  |CTE_STRING                    |k es mayor                    |10                            
+__j_es_mayor                  |CTE_STRING                    |j es mayor                    |10                            
