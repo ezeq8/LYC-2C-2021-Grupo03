@@ -235,7 +235,7 @@ EQUMIN			"EQUMIN"
 				}
 {CTE_STRING}	{
 					printf( "\nConstante String: %s\n", yytext); 
-					if(strlen(yytext)<=30){
+					if(strlen(yytext)-2<=30){   //Las 2 comillas no cuentan para calcular la longitud del string
 						yylval.valor_string = strdup(yytext);
 					}
 					else{
